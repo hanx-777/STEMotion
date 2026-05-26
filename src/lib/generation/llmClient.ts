@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { readFileSync, statSync } from 'fs';
-import { join } from 'path';
 import { createLogger } from '@/lib/logger';
+import { getModelProfilesPath, type ModelProfile, type ModelProfilesFile } from './modelProfiles';
 
 const log = createLogger('llm');
 
@@ -30,35 +30,19 @@ export class LlmTruncationError extends Error {
 
 // --- Model Profiles ---
 
-interface ModelProfile {
-  label: string;
-  provider: 'anthropic' | 'openai';
-  baseURL: string;
-  apiKey: string;
-  model: string;
-  timeout?: number;
-  thinking?: { type: 'enabled'; budgetTokens: number };
-}
-
-interface ModelProfilesFile {
-  activeProfile: string;
-  profiles: Record<string, ModelProfile>;
-}
-
 let profilesCache: { mtime: number; data: ModelProfilesFile } | null = null;
-
-const MODEL_PROFILES_PATH = join(process.cwd(), 'model-profiles.json');
 
 function getActiveProfile(): ModelProfile | null {
   try {
-    const stat = statSync(MODEL_PROFILES_PATH);
+    const profilesPath = getModelProfilesPath();
+    const stat = statSync(profilesPath);
     const mtime = stat.mtimeMs;
 
     if (profilesCache && profilesCache.mtime === mtime) {
       return profilesCache.data.profiles[profilesCache.data.activeProfile] ?? null;
     }
 
-    const raw = readFileSync(MODEL_PROFILES_PATH, 'utf-8');
+    const raw = readFileSync(profilesPath, 'utf-8');
     const data: ModelProfilesFile = JSON.parse(raw);
     profilesCache = { mtime, data };
 

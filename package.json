@@ -9,6 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
+    "test": "tsx --test tests/*.ts",
+    "rag:ingest": "tsx scripts/ingest_knowledge.ts",
+    "rag:query": "tsx scripts/test_rag_query.ts",
     "spike:export-pptx": "tsx scripts/spike-export-pptx.ts"
   },
   "dependencies": {

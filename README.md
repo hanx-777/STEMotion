@@ -1,10 +1,470 @@
-# STEMotion MVP
+# STEMotion Physics Skill
 
-STEMotion 是一个面向 K-12 STEM 教育的 AI 交互实验生成系统。它把教师或学生的一句自然语言需求，转化为可运行、可检查、可保存、可追问修改的交互式学习 artifact。
+STEMotion Physics Skill 是面向高校大学物理力学课程的可追溯 RAG 智能助学与助教系统。它以大学物理力学为默认落地学科，结合可切换学科 Skill、课程知识库、本地检索、可选网络补充检索、结构化教学任务和运动过程可视化，支持学生分步学习、错因诊断和教师课堂演示。
 
-当前项目定位不是普通 AI HTML 生成器，而是一个 **teacher-AI co-authoring system**：系统先把教师意图外化为教师可读的计划和 `LearningBlueprint`，再结合学科约束、可信模板、多 Agent 评审和本地研究记录，帮助教师检查、协商、修改和复用 AI 生成的 STEM 交互实验。
+原始 STEMotion 系统面向更广泛的 STEM 教育交互实验生成；XH202620 参赛展示版本聚焦高校大学物理力学场景，保留深度交互生成、LearningBlueprint、多 Agent 评审和研究日志能力作为系统底座。
 
-核心生成范式：
+![STEMotion RAG 页面](docs/assets/readme/rag-page-desktop.png)
+
+## XH202620 参赛定位
+
+| 项目 | 内容 |
+| --- | --- |
+| 作品名称 | STEMotion Physics Skill |
+| 默认学科 | 大学物理力学 `physics_mechanics` |
+| 核心场景 | 学生助学 + 教师助教 |
+| 主要能力 | 学科 Skill、RAG 知识库、引用追溯、结构化解题、错因诊断、教师备课、运动可视化 |
+| 技术底座 | Next.js 16、React 19、TypeScript、本地 JSON/TF-IDF 检索、OpenAI / Claude 模型配置 |
+| 参赛主线 | 面向一流学科建设的物理力学垂类智能教学应用 |
+
+本版本不把 K-12 综合平台作为主叙事，而是把“高校大学物理力学”做深做清楚：系统先从本地课程知识库检索依据，再由当前启用的大模型生成最终回答；如果知识库和网络检索没有可靠来源，系统仍由大模型回答，但会明确标注“当前知识库和网络检索中未找到可靠依据”，不会伪造 citation。
+
+## 功能总览
+
+- **学科 Skill 切换**：每个学科拥有独立 `skill.yaml`、system prompt、answer template、知识库路径、检索参数和回答规范。
+- **本地知识库优先**：支持 Markdown、TXT、PDF 文档读取和分块索引，不同学科知识库隔离。
+- **网络检索增强**：可选 Mock 或自定义 JSON Search Provider；网络资料只作为补充参考来源。
+- **大模型最终回答**：RAG 负责提供依据和上下文，最终回答始终由 active model profile 对应的大模型生成。
+- **引用追溯**：返回 `citations`、`retrieved_chunks`、`source_summary`，严格区分本地课程资料和网络补充资料。
+- **结构化教学任务**：支持知识问答、分步解题、错因诊断、教师备课。
+- **物理可视化**：斜抛运动问题可返回 `visualization_hint`，前端渲染轨迹图和参数卡片。
+- **模型设置页**：`/settings` 支持 OpenAI 与 Claude 两类接口、Base URL、API Key、模型列表拉取和 active profile 切换。
+- **深度交互生成底座**：保留 STEMotion 原有标准实验室、深度交互生成、本地交互库、LearningBlueprint 和多 Agent 质量评审。
+
+## 页面截图
+
+### 学科 RAG 参赛展示页
+
+`/rag` 是 XH202620 参赛展示主页面，面向评委展示“学科垂类 RAG + 可追溯引用 + 教学任务 + 运动可视化”闭环。
+
+![学科 RAG 参赛展示页](docs/assets/readme/rag-page-desktop.png)
+
+### 模型与 API 设置页
+
+`/settings` 用于配置 OpenAI / Claude 模型 profile、API Key、Base URL，并获取模型列表。
+
+![模型设置页](docs/assets/readme/settings-page-desktop.png)
+
+## 系统架构
+
+```mermaid
+flowchart LR
+  User["学生 / 教师 / 评委"] --> UI["Next.js 前端页面<br/>/rag /settings /deep-interaction"]
+  UI --> Routes["Next Route Handlers<br/>/api/rag/ask<br/>/api/subjects<br/>/api/model-profiles"]
+
+  Routes --> Subject["SubjectManager<br/>读取 skills/{subject}"]
+  Subject --> Skill["Skill 配置<br/>skill.yaml<br/>system_prompt.md<br/>answer_template.md"]
+
+  Routes --> RAG["RAG Pipeline"]
+  RAG --> Retriever["Local Retriever"]
+  Retriever --> Store["本地 JSON/TF-IDF 索引<br/>.stemotion/vector-store"]
+  Store --> KB["课程知识库<br/>Markdown / TXT / PDF"]
+
+  RAG --> Web["可选网络补充检索<br/>Mock / Custom JSON Provider"]
+  RAG --> Prompt["构造学科 Prompt<br/>引用来源 + 任务类型 + 可视化提示"]
+
+  Prompt --> LLM["Active Model Profile<br/>OpenAI / Claude"]
+  LLM --> Answer["结构化回答<br/>citations<br/>answer_sections<br/>visualization_hint"]
+  Answer --> UI
+```
+
+## 技术栈
+
+| 层级 | 技术 |
+| --- | --- |
+| 应用框架 | Next.js `16.2.6` App Router |
+| UI | React `19.2.4`、Tailwind CSS v4、lucide-react、framer-motion |
+| 语言 | TypeScript |
+| 模型接口 | OpenAI Chat Completions 兼容接口、Anthropic Claude Messages API |
+| 本地检索 | JSON 文件索引 + TF-IDF / cosine scoring |
+| 文档加载 | Markdown、TXT、PDF 可替换解析 |
+| 测试 | Node test runner + tsx |
+| 本地存储 | `.stemotion/` 运行态目录、`model-profiles.json` 本地模型配置 |
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置模型
+
+复制示例配置：
+
+```bash
+cp model-profiles.example.json model-profiles.json
+```
+
+Windows PowerShell 可使用：
+
+```powershell
+Copy-Item model-profiles.example.json model-profiles.json
+```
+
+然后在 `model-profiles.json` 中填入自己的 API Key，或启动项目后打开 `/settings` 页面配置。
+
+示例结构如下，示例 Key 不可直接使用：
+
+```jsonc
+{
+  "activeProfile": "openai-main",
+  "profiles": {
+    "openai-main": {
+      "label": "OpenAI Main",
+      "provider": "openai",
+      "baseURL": "https://api.openai.com/v1",
+      "apiKey": "YOUR_OPENAI_API_KEY",
+      "model": "gpt-4.1",
+      "timeout": 300000
+    },
+    "claude-main": {
+      "label": "Claude Main",
+      "provider": "anthropic",
+      "baseURL": "https://api.anthropic.com",
+      "apiKey": "YOUR_CLAUDE_API_KEY",
+      "model": "claude-opus-4-1",
+      "timeout": 300000
+    }
+  }
+}
+```
+
+### 3. 构建知识库索引
+
+```bash
+npm run rag:ingest -- --subject all
+```
+
+也可以只构建默认学科：
+
+```bash
+npm run rag:ingest -- --subject physics_mechanics
+```
+
+索引产物写入 `.stemotion/vector-store/`，该目录是本地运行态，不提交到 Git。
+
+### 4. 启动开发服务器
+
+```bash
+npm run dev
+```
+
+默认地址：
+
+- `http://localhost:3001/rag`
+- `http://localhost:3001/settings`
+- `http://localhost:3001/deep-interaction`
+
+### 5. 命令行测试 RAG
+
+```bash
+npm run rag:query -- --subject physics_mechanics --task step_solution --question "斜抛运动最大高度公式是什么"
+```
+
+## 页面入口
+
+| 页面 | 说明 |
+| --- | --- |
+| `/rag` | XH202620 参赛展示主页面，展示学科 Skill、RAG、引用追溯、结构化任务和可视化 |
+| `/settings` | OpenAI / Claude 模型 profile、API Key、Base URL、模型列表和 active profile |
+| `/` | 标准实验室模式，快速展示单个结构化实验 |
+| `/deep-interaction` | Guided Planning、HTML/SVG/Canvas 交互生成和多 Agent 评审 |
+| `/interactions` | 本地交互库，保存、打开、筛选和删除 artifact |
+| `/generate` | 传统生成入口 |
+| `/experiments` | 实验相关页面 |
+| `/player` | 生成实验播放页面 |
+
+## 学科 Skill
+
+所有学科配置位于 `skills/{subject}/`。
+
+```text
+skills/
+├── physics_mechanics/
+│   ├── skill.yaml
+│   ├── system_prompt.md
+│   ├── answer_template.md
+│   └── knowledge_base/
+├── advanced_math/
+├── chemistry/
+└── computer_science/
+```
+
+初始学科：
+
+| Skill | 显示名 | 当前用途 |
+| --- | --- | --- |
+| `physics_mechanics` | 大学物理力学 | 默认深度落地学科，参赛展示主线 |
+| `advanced_math` | 高等数学 | 预留可扩展学科 |
+| `chemistry` | 大学化学 | 预留可扩展学科 |
+| `computer_science` | 程序设计与数据结构 | 预留可扩展学科 |
+
+每个 `skill.yaml` 至少包含：
+
+```yaml
+name: physics_mechanics
+display_name: 大学物理力学
+description: 面向大学物理力学的学科 Skill
+default_language: zh-CN
+knowledge_base_path: knowledge_base
+system_prompt_path: system_prompt.md
+answer_template_path: answer_template.md
+retrieval:
+  top_k: 4
+  score_threshold: 0.18
+  enable_web_search: true
+  web_top_k: 3
+tools:
+  - formula_reasoning
+  - unit_check
+  - visualization_parameters
+answer_requirements:
+  - 分步推导
+  - 物理量定义
+  - 公式适用条件
+  - 单位检查
+  - 引用来源
+```
+
+添加新学科时，复制任一现有学科目录，修改 `skill.yaml`、prompt、answer template，并把文档放入对应 `knowledge_base/`，然后运行：
+
+```bash
+npm run rag:ingest -- --subject your_subject_name
+```
+
+## RAG 工作流
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant API as /api/rag/ask
+  participant S as SubjectManager
+  participant R as Retriever
+  participant W as WebSearchProvider
+  participant L as OpenAI / Claude
+
+  U->>API: question + subject + task_type
+  API->>S: validate subject and load Skill
+  API->>R: retrieve subject-local chunks
+  alt local score below threshold and web search enabled
+    API->>W: search supplementary web references
+  end
+  API->>API: build citations and prompt
+  API->>L: generate final answer with evidence context
+  L-->>API: answer text
+  API-->>U: answer + sections + citations + visualization_hint
+```
+
+关键原则：
+
+- RAG 只负责检索依据、组织上下文和标注来源。
+- 最终回答始终由当前 active model profile 对应的大模型生成。
+- 本地课程资料是优先可信来源。
+- 网络检索资料只能作为补充参考来源。
+- 无可靠来源时仍调用大模型，但必须明确说明依据不足，不生成虚假 citations。
+- 模型不可用时，`/api/rag/ask` 返回错误，提示检查 `/settings` 模型配置或 API Key。
+
+## 任务类型
+
+`/rag` 支持四类教学任务：
+
+| task_type | 中文名 | 用途 |
+| --- | --- | --- |
+| `knowledge_qa` | 知识问答 | 概念解释、公式含义、学习建议 |
+| `step_solution` | 分步解题 | 已知量提取、模型判断、推导、结果和易错点 |
+| `misconception_diagnosis` | 错因诊断 | 分析学生错误答案、纠正思路和巩固练习 |
+| `teacher_prep` | 教师备课 | 教学目标、课堂导入、板书推导和互动提问 |
+
+如果请求不传 `task_type`，默认使用 `step_solution`。
+
+## API 摘要
+
+### 学科与 RAG
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/subjects` | 获取可用学科 Skill、知识库状态、工具和回答规范 |
+| `GET` | `/api/subjects/default` | 获取默认学科 |
+| `POST` | `/api/subjects/default` | 设置默认学科 |
+| `POST` | `/api/rag/ask` | 执行学科 RAG 问答，返回结构化回答、引用来源和可视化提示 |
+
+`POST /api/rag/ask` 请求示例：
+
+```json
+{
+  "question": "一个小球以20m/s初速度、30度角斜抛，求最大高度和射程",
+  "subject": "physics_mechanics",
+  "task_type": "step_solution",
+  "use_web_search": true
+}
+```
+
+响应核心字段：
+
+```json
+{
+  "subject": "physics_mechanics",
+  "subject_display_name": "大学物理力学",
+  "task_type": "step_solution",
+  "answer": "...",
+  "answer_sections": [],
+  "visualization_hint": {
+    "type": "projectile_motion",
+    "parameters": {
+      "v0": 20,
+      "angle_deg": 30,
+      "g": 9.8
+    }
+  },
+  "citations": [],
+  "retrieved_chunks": [],
+  "source_summary": {
+    "local_count": 0,
+    "web_count": 0
+  }
+}
+```
+
+### 模型配置
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/model-profiles` | 读取脱敏后的模型 profile 摘要 |
+| `POST` | `/api/model-profiles` | 新建或更新模型 profile |
+| `PATCH` | `/api/model-profiles` | 切换当前 active profile |
+| `DELETE` | `/api/model-profiles?id=...` | 删除模型 profile |
+| `POST` | `/api/model-profiles/models` | 使用表单中的 API Key 获取 OpenAI 或 Claude 模型列表 |
+
+`GET /api/model-profiles` 不返回完整 API Key，只返回 `hasApiKey` 和 `apiKeyPreview`。
+
+### 深度交互生成
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/generate` | 标准实验室一次性生成 |
+| `POST` | `/api/deep-interaction/planning` | 深度交互生成前的澄清与教师计划 |
+| `POST` | `/api/deep-interaction/generate` | 深度交互 SSE 生成 |
+| `POST` | `/api/deep-interaction/follow-up` | 基于当前 HTML 的追问修改 |
+
+## 网络检索配置
+
+网络检索是可选增强能力，由环境变量和学科配置共同控制。
+
+| 变量 | 说明 |
+| --- | --- |
+| `STEMOTION_WEB_SEARCH_PROVIDER=mock` | 使用 MockWebSearchProvider，适合测试和演示 |
+| `STEMOTION_WEB_SEARCH_PROVIDER=custom-json` | 使用自定义 JSON 搜索接口 |
+| `STEMOTION_WEB_SEARCH_ENDPOINT` | 自定义搜索 API 地址 |
+| `STEMOTION_WEB_SEARCH_API_KEY` | 自定义搜索 API Key |
+
+没有真实搜索 API Key 时，系统会优雅降级，不影响本地 RAG、模型回答和页面加载。网络结果在 UI 和 citations 中始终标记为“网络补充资料”，不会伪装成本地课程资料。
+
+## 目录结构
+
+```text
+stemotion-mvp/
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── rag/
+│   │   │   ├── subjects/
+│   │   │   └── model-profiles/
+│   │   ├── rag/
+│   │   └── settings/
+│   ├── components/
+│   │   ├── rag/
+│   │   ├── settings/
+│   │   └── layout/
+│   └── lib/
+│       ├── rag/
+│       ├── subjects/
+│       ├── generation/
+│       └── config/
+├── skills/
+│   ├── physics_mechanics/
+│   ├── advanced_math/
+│   ├── chemistry/
+│   └── computer_science/
+├── scripts/
+│   ├── ingest_knowledge.ts
+│   ├── test_rag_query.ts
+│   ├── ingest_knowledge.py
+│   └── test_rag_query.py
+├── docs/
+│   ├── assets/readme/
+│   ├── evaluation/
+│   ├── rag_subject_switching.md
+│   ├── xh202620_mapping.md
+│   ├── knowledge_sources.md
+│   └── safety_ethics_statement.md
+├── competition_submission/
+├── tests/
+└── model-profiles.example.json
+```
+
+## 常用脚本
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run dev` | 启动开发服务器，默认端口 `3001` |
+| `npm run build` | 构建生产版本 |
+| `npm run start` | 启动生产构建 |
+| `npm run lint` | ESLint 检查 |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm run check` | 依次运行 lint、typecheck、build |
+| `npm test` | 运行单元/API 测试 |
+| `npm run rag:ingest -- --subject all` | 构建全部学科知识库索引 |
+| `npm run rag:query -- --subject physics_mechanics --question "..."` | 命令行测试 RAG |
+
+Python 包装脚本也保留：
+
+```bash
+python scripts/ingest_knowledge.py --subject all
+python scripts/test_rag_query.py --subject physics_mechanics --question "斜抛运动最大高度公式是什么"
+```
+
+## 测试与验收
+
+推荐提交前运行：
+
+```bash
+npm test
+npm run lint
+npm run typecheck
+npm run build
+npm run check
+```
+
+重点验收场景：
+
+1. `/settings` 可以新增 OpenAI / Claude profile，获取模型列表并切换 active profile。
+2. `/rag` 默认学科为大学物理力学。
+3. 斜抛运动问题能返回结构化分步解题、引用来源和 `visualization_hint`。
+4. 无可靠来源时，仍由模型回答，但明确提示依据不足，不伪造 citations。
+5. 切换到高等数学、大学化学、程序设计与数据结构时，检索不会混用其他学科知识库。
+6. 模型配置错误时，RAG API 返回明确错误，前端不展示检索片段拼接成的假回答。
+7. 典型案例 demo fallback 只用于演示兜底，并明确标注“演示样例结果”。
+
+## XH202620 相关文档
+
+| 文档 | 用途 |
+| --- | --- |
+| [docs/xh202620_mapping.md](docs/xh202620_mapping.md) | 赛题目标理解与评审指标映射 |
+| [docs/rag_subject_switching.md](docs/rag_subject_switching.md) | 学科 Skill 与 RAG 使用说明 |
+| [docs/knowledge_sources.md](docs/knowledge_sources.md) | 知识库来源、网络补充资料边界和合规说明 |
+| [docs/evaluation/test_cases.md](docs/evaluation/test_cases.md) | 典型测试案例总览 |
+| [docs/evaluation/effect_validation_report.md](docs/evaluation/effect_validation_report.md) | 效果验证报告模板 |
+| [docs/demo_script_3min.md](docs/demo_script_3min.md) | 3 分钟参赛演示脚本 |
+| [docs/safety_ethics_statement.md](docs/safety_ethics_statement.md) | 安全与伦理合规声明 |
+| [competition_submission/](competition_submission/) | 参赛提交材料目录模板 |
+
+注意：用户反馈、效果验证报告、报名材料、签字盖章材料均为模板或目录说明，不包含伪造数据。真实学生/教师反馈和最终提交材料需要团队后续补充。
+
+## 深度交互与研究底座
+
+STEMotion 原有深度交互能力仍然保留，用于支撑“RAG 解释 + 物理过程可视化 + 教师可用交互实验”的长期方向。
 
 ```text
 Clarification
@@ -18,12 +478,12 @@ Clarification
 -> Follow-up Refinement
 ```
 
-## 当前能力
+底座能力包括：
 
-- 标准实验室模式 `/`：加载传统 `ExperimentConfig`，用于快速展示单个结构化实验。
+- 标准实验室模式 `/`：加载传统 `ExperimentConfig`，快速展示单个结构化实验。
 - 深度交互模式 `/deep-interaction`：通过 Guided Planning 和 Agent pipeline 生成 HTML/SVG/Canvas 交互组件。
 - 本地交互库 `/interactions`：使用浏览器 localStorage/Zustand persist 保存、打开、筛选和删除 artifact。
-- Guided Planning：生成前先澄清需求，输出教师可读的生成计划，用户批准后才正式生成。
+- Guided Planning：生成前澄清需求，输出教师可读计划，用户批准后再生成。
 - LearningBlueprint：记录主题、学科、年级、Bloom 层级、核心变量、expectedInsight、学习目标和知识约束。
 - Subject Schema Validator：对高频 STEM 主题注入学科约束，并把校验摘要进入生成上下文。
 - Verified Experiment Templates：对常见主题优先匹配原创可信模板，再做 slot-based customization。
@@ -31,418 +491,43 @@ Clarification
 - Explainable QualityReport：展示蓝图对齐、变量覆盖、知识约束、模板保留和 repair trace。
 - Follow-up 修改：基于当前 HTML 创建新版本，尽量保留 blueprint、模板约束和稳定 `data-role`。
 - Research Mode：本地记录摘要事件并导出 JSON/CSV，用于后续教师-AI 共创研究。
-- 模型 profile 切换：通过 `model-profiles.json` 和 `/api/model-profiles` 管理当前模型配置。
 
-## 设计理念
+更多设计文档：
 
-STEMotion 更关注生成过程是否可解释、可审查、可修复，而不是让大模型一次性自由生成完整网页。
+- [docs/design.md](docs/design.md)
+- [docs/prompt-lifecycle.md](docs/prompt-lifecycle.md)
+- [docs/deep-interaction-refactor-plan.md](docs/deep-interaction-refactor-plan.md)
+- [docs/data-flow-trace-example.md](docs/data-flow-trace-example.md)
 
-面向 CHI/HCI 叙事，当前系统围绕三个概念组织：
+## 安全与合规
 
-- **Pedagogical Grounding**：教师 prompt 被外化为 Guided Plan 和 LearningBlueprint，教学目标、核心变量和 expectedInsight 可以被检查。
-- **Reviewable Generative Artifacts**：生成物不只是 HTML，还包括 blueprint、schema validation、template metadata、quality report 和 repair trace。
-- **Controlled Adaptation**：常见实验优先基于 verified template 可控改编；未命中模板时再进入蓝图驱动的自由生成。
+- 不提交真实 API Key、`.env.local`、`model-profiles.json`、`.stemotion/`、`.next/` 或本地 vector-store 产物。
+- 不使用未经脱敏的真实学生隐私数据。
+- 不伪造学术数据、用户反馈、效果验证结果、报名表或盖章材料。
+- AI 生成内容仅供学习参考，重要教学结论需结合课程教材与教师要求核验。
+- 本地课程资料是优先可信来源；网络检索资料只作为补充参考来源。
+- 如果没有可靠依据，系统必须明确说明依据不足，不编造文献、页码或课程来源。
 
-项目边界：
+## 部署注意事项
 
-- 不复制第三方平台源码、素材、品牌元素、UI 细节或原始文案。
-- 不新增数据库、账号系统或云端研究日志。
-- 不把缺失的质量分数字段填成假分数。
-- 不把 Research Mode 作为自动上传机制；所有研究日志默认只保存在本地。
-
-## 技术栈
-
-- Next.js `16.2.6`，App Router，Route Handlers
-- React `19.2.4`
-- TypeScript strict mode
-- Tailwind CSS v4
-- Zustand v5，本地 persist
-- Framer Motion、Lucide React、Recharts
-- OpenAI SDK，兼容 OpenAI Chat Completions 和 Anthropic Messages API 风格调用
-
-## 快速开始
-
-```bash
-npm install
-cp model-profiles.example.json model-profiles.json
-npm run dev
-```
-
-默认开发端口是 `3001`：
-
-- `http://localhost:3001/`：标准实验室
-- `http://localhost:3001/deep-interaction`：深度交互生成
-- `http://localhost:3001/interactions`：本地交互库
-
-不要把真实 API Key 提交到仓库。
-
-## 模型配置
-
-项目优先读取根目录下的 `model-profiles.json`。
-
-```jsonc
-{
-  "activeProfile": "default",
-  "profiles": {
-    "default": {
-      "label": "Default Model",
-      "provider": "openai",
-      "baseURL": "https://api.example.com/v1",
-      "apiKey": "sk-your-key",
-      "model": "model-name",
-      "timeout": 300000
-    }
-  }
-}
-```
-
-- `provider: "openai"`：使用 OpenAI Chat Completions 兼容格式。
-- `provider: "anthropic"`：使用 Anthropic Messages API 格式，`baseURL` 会补齐 messages 路径。
-- `thinking` 为可选字段；启用后 Anthropic 调用会使用非流式路径，并把 temperature 设为 `1`。
-- `GET /api/model-profiles` 只返回脱敏后的 profile 摘要。
-- `PATCH /api/model-profiles` 切换 `activeProfile` 并清理服务端 profile 缓存。
-
-## 核心流程
-
-### 标准实验室模式
-
-`POST /api/generate` 调用 `runExperimentAgentPipeline`，返回一个标准 `ExperimentConfig`。
-
-```text
-User Prompt
--> ExperimentPlannerAgent
--> WidgetCodeAgent
--> TeacherActionAgent
--> ExperimentConfig
--> validateExperimentConfig
--> 页面加载实验
-```
-
-标准实验室适合快速演示。它不会进入 Guided Planning、LearningBlueprint、Verified Templates 或多 Agent feedback loop。
-
-### 深度交互模式
-
-深度交互模式当前支持四类 artifact：
-
-| 类型 | 说明 |
-| --- | --- |
-| `simulation` | 模拟实验、参数探索、过程动画 |
-| `3d_visualization` | 3D 或空间结构可视化 |
-| `game` | 知识驱动的互动小游戏 |
-| `mind_map` | 概念结构、知识网络和思维导图 |
-
-生成前会先进入 Guided Planning：
-
-```text
-User Prompt
--> POST /api/deep-interaction/planning
-   -> clarification_required, if prompt is ambiguous
-   -> plan_ready, if teacher plan is ready
--> User Approval
--> POST /api/deep-interaction/generate
-```
-
-`planningSessionId` 只用于前端和 Research Mode 追踪。服务端不保存 planning session；每次 planning API 调用都通过 `prompt + answers + clarificationRound` 重建上下文。
-
-批准后进入 SSE 生成流程：
-
-```text
-InteractionPlannerAgent
--> LearningDesignAgent
--> LearningBlueprint
--> SubjectSchemaValidator
--> TemplateMatcher
-   -> high-confidence match:
-      -> TemplateCustomizationAgent
-   -> otherwise:
-      -> WidgetHtmlAgent
--> HTML safety validation / programmatic repair / LLM repair
--> TeacherActionAgent
--> InteractionSchema + Artifact draft
--> Multi-Agent Feedback Loop
-   -> Pedagogy Evaluator
-   -> UX Evaluator
-   -> Safety Evaluator
-   -> Runtime Evaluator
-   -> JudgeAgent
-   -> RepairAgent, when needed
--> Explainable QualityReport
--> artifact_ready
--> Zustand persist 保存到本地交互库
-```
-
-Verified Template 不是免审路径。即使命中可信模板，HTML 仍然必须进入现有 safety、runtime、pedagogy、UX feedback loop。
-
-## Guided Plan
-
-`GuidedGenerationPlan` 是教师计划，不是工程执行日志。它面向教师展示：
-
-- `topic`
-- `subjectDomain`
-- `gradeRange`
-- `interactionType`
-- `expectedInsight`
-- `learningObjectives`
-- `coreVariables`
-- `knowledgeConstraints`
-- `possibleTemplate`
-- `interactionStructure`
-- `qualityFocus`
-- `assumptions`
-
-Planning Agent 失败或 JSON 解析失败时不会阻断用户。系统会返回 deterministic fallback plan，并在 assumptions 中标记：
-
-```text
-Planning failed; proceed with default generation assumptions.
-```
-
-澄清最多 2 轮。第二轮后仍不明确时，系统返回可批准计划，并把未解决问题写入 assumptions。
-
-## LearningBlueprint 与 Subject Schema
-
-`LearningBlueprint` 是深度交互生成的教学中间层，定义在 `src/lib/deep-interaction/types.ts`。核心字段包括：
-
-- `topic`、`subjectDomain`、`gradeRange`、`bloomLevel`、`scaffoldingLevel`
-- `coreVariables`：区分 independent、dependent、controlled 变量
-- `expectedInsight`：学生应通过交互形成的核心洞察
-- `learningObjectives`、`prerequisites`
-- `knowledgeConstraints`：公式、单位、顺序、概念和视觉呈现约束
-
-内置 Subject Schema 位于 `src/lib/deep-interaction/subject-schemas/`，当前包含：
-
-| Schema | 主题 | 关键约束 |
-| --- | --- | --- |
-| `physics:ohms_law` | 欧姆定律 | `I = U / R`，V/Ω/A 单位，I 与 U/R 的关系 |
-| `math:quadratic_function` | 二次函数 | `y = ax^2 + bx + c`，`x = -b / (2a)`，开口方向 |
-| `physics:projectile_motion` | 抛体运动 | 水平方向匀速，竖直方向受重力加速度影响 |
-| `chemistry:acid_base_titration` | 酸碱滴定 | pH/指示剂变化，强酸强碱等量点附近 pH |
-| `biology:cell_division` | 有丝分裂 | 阶段顺序，两个子细胞遗传物质通常相同 |
-
-约束合并规则：schema constraints 优先。Subject Schema 未命中时不阻断生成，只记录 warning。
-
-## Verified Experiment Templates
-
-可信模板位于 `src/lib/deep-interaction/verified-experiments/`。模板是项目内原创实现的自包含 HTML，不复制第三方源码、素材或品牌元素。
-
-当前模板：
-
-| Template | 主题 | 核心能力 |
-| --- | --- | --- |
-| `physics-ohms-law-basic` | 欧姆定律 | 调节电压/电阻，观察电流变化 |
-| `math-quadratic-function-basic` | 二次函数 | 调节 a/b/c，观察抛物线、对称轴和顶点 |
-| `biology-mitosis-basic` | 有丝分裂 | 按阶段展示细胞分裂过程 |
-| `chemistry-acid-base-titration-basic` | 酸碱滴定 | 展示 pH、颜色变化和等量点 |
-
-模板 artifact 可选保存 `templateMetadata`：
-
-- `template_customized`：命中模板并完成可控改编
-- `template_fallback_original`：改编失败，回退原始可信模板
-- `free_generation`：未使用模板，走蓝图驱动自由生成
-
-## Explainable QualityReport
-
-`QualityReport` 保留原有 `finalScore`、`level`、`strengths`、`weaknesses`、`suggestions` 和 `evaluatorScores`，并追加可选结构化字段：
-
-- `blueprintAlignment`
-- `subjectCorrectness`
-- `variableCoverage`
-- `learningObjectiveCoverage`
-- `knowledgeConstraintSatisfaction`
-- `blueprintSummary`
-- `schemaValidation`
-- `qualityExplanation`
-- `repairTrace`
-
-结构化分数只来自 evaluator 的真实结构化输出或程序化校验结果。没有可靠来源时保持 `undefined`。`qualityExplanation` 中的 `unknown` 表示“未检测”或“暂无可靠证据”，不是失败。
-
-## Research Mode
-
-Research Mode 默认关闭，只在本地记录摘要事件，支持 JSON/CSV 导出，不自动上传数据。
-
-记录事件包括：
-
-- `planning_started`
-- `clarification_answered`
-- `plan_approved`
-- `prompt_submitted`
-- `blueprint_generated`
-- `template_matched`
-- `template_customized`
-- `artifact_generated`
-- `quality_report_viewed`
-- `follow_up_submitted`
-- `artifact_saved`
-
-Research Mode 不记录完整 prompt、完整 guided plan、完整 HTML、API Key 或模型配置文件。推荐 payload 只包含：
-
-- `promptLength`
-- `preferredType`
-- `planningSessionId`
-- `subjectDomain`
-- `topic`
-- `interactionType`
-- `templateId`
-- `artifactId`
-- `qualityLevel`
-
-## SSE 事件
-
-`POST /api/deep-interaction/generate` 返回 Server-Sent Events。当前事件包括：
-
-```text
-session_created
-progress
-type_selected
-blueprint_generated
-subject_validated
-template_matched
-template_customized
-outline_generated
-schema_generated
-validation_started
-feedback_started
-feedback_iteration_started
-evaluator_started
-evaluator_completed
-judge_decision
-repair_started
-repair_completed
-feedback_completed
-artifact_ready
-error
-```
-
-服务端每 15 秒发送一次 `:heartbeat`。客户端断开连接时，服务端会取消当前生成流程。
-
-`subject_validated` 只发送校验摘要：`blueprintId`、`passed`、`schemaKey`、`violations`、`warnings`，不发送完整 constraints 列表。
-
-## HTML Widget 规范
-
-生成的 widget 必须是完整、独立、自包含的 HTML 文档：
-
-- 只包含内联 CSS 和内联 JS。
-- 禁止外部远程资源、网络请求、动态 import、Storage、Cookie 和嵌套 iframe。
-- 必须包含 `<script type="application/json" id="widget-config">`。
-- 必须响应 `SET_WIDGET_STATE`、`HIGHLIGHT_ELEMENT`、`ANNOTATE_ELEMENT`、`REVEAL_ELEMENT` 四类 `postMessage`。
-- 动画应使用 `requestAnimationFrame`。
-- 应提供开始、暂停或重置控制。
-- 应在 375px 移动端宽度下保持可用。
-- 应使用稳定语义选择器，例如 `data-role="simulation-main"`、`data-role="control-panel"`、`data-role="observation-panel"`、`data-role="formula-panel"`、`data-role="quiz-panel"`。
-
-当前 iframe sandbox 使用兼容模式：
-
-```html
-sandbox="allow-scripts allow-same-origin"
-```
-
-该值集中配置在 `src/lib/utils/iframe.ts` 的 `INTERACTIVE_WIDGET_IFRAME_SANDBOX`。未来如需切换严格模式，应先验证现有 widget 的资源访问、postMessage 通信和状态回放行为。
-
-## Follow-up 修改
-
-`POST /api/deep-interaction/follow-up` 接收当前 HTML 和用户追问，调用 WidgetRefineAgent 生成局部修改。它不会重新跑完整多 Agent 评审，而是在当前 session 中创建新的 artifact version。
-
-如果当前 artifact 带有 `LearningBlueprint`，follow-up prompt 会要求继续满足 `expectedInsight`、must 级知识约束和核心变量覆盖。
-
-如果当前 artifact 带有 `templateMetadata`，follow-up prompt 会要求保留模板核心约束、稳定 `data-role`、公式区、观察区和 quiz 区。
-
-没有 blueprint 或 templateMetadata 时，服务端保持旧逻辑。
-
-## API 摘要
-
-| 方法 | 路径 | 用途 |
-| --- | --- | --- |
-| `POST` | `/api/generate` | 标准实验室一次性生成 |
-| `POST` | `/api/deep-interaction/planning` | 深度交互生成前的澄清与教师计划 |
-| `POST` | `/api/deep-interaction/generate` | 深度交互 SSE 生成 |
-| `POST` | `/api/deep-interaction/follow-up` | 基于当前 HTML 的追问修改 |
-| `GET` | `/api/model-profiles` | 读取可选模型 profile 摘要 |
-| `PATCH` | `/api/model-profiles` | 切换当前 active profile |
-
-## 本地状态与持久化
-
-深度交互模式使用多个 Zustand store：
-
-- `stemotion-interaction-sessions`：session、消息、当前 artifact
-- `stemotion-interaction-artifacts`：artifact 列表和版本
-- `generationProgressStore`：SSE 生成进度，非持久化
-- `deepWidgetIframeStore`：深度交互 iframe 运行状态和消息桥接
-- `deepWidgetIframeStore` 之外，标准实验室还使用 `widgetIframeStore`
-- `stemotion-research-log`：Research Mode 本地摘要事件日志
-
-旧 artifact 缺少 `blueprint`、`templateMetadata`、`planningMetadata`、`qualityExplanation` 或 `repairTrace` 时，UI 应继续可打开、可播放、可删除、可追问。
-
-## 调试日志
-
-日志模块为零依赖 `createLogger`，输出格式：
-
-```text
-[YYYY-MM-DD HH:MM:SS] [module:level] message | data
-```
-
-常用命令：
-
-```bash
-DEBUG=* npm run dev
-DEBUG=llm,pipeline,json,html npm run dev
-npm run dev
-```
-
-常见模块包括 `llm`、`pipeline`、`json`、`html`、`api`、`profiles`、`followUp`、`guidedPlanning`。
-
-## 质量检查
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
-npm run check
-```
-
-`npm run check` 会依次执行 lint、typecheck 和 production build。
-
-## 目录结构
-
-```text
-src/app/
-  api/
-    generate/
-    deep-interaction/
-      planning/
-      generate/
-      follow-up/
-    model-profiles/
-  deep-interaction/
-  interactions/
-
-src/components/deep-interaction/
-  DeepInteractionShell.tsx
-  DeepInteractionRightPanel.tsx
-  GuidedPlanningPanel.tsx
-  GenerationProgressPanel.tsx
-  TemplateMatchPanel.tsx
-  QualityExplanationPanel.tsx
-  StudyModePanel.tsx
-  renderers/
-
-src/lib/deep-interaction/
-  agentWidgetPipeline.ts
-  events.ts
-  types.ts
-  agents/
-  subject-schemas/
-  verified-experiments/
-  prompts/
-
-src/lib/stores/
-  interactionSessionStore.ts
-  artifactStore.ts
-  generationProgressStore.ts
-  researchLogStore.ts
-```
+- 本项目默认适合本地 demo、课程原型和比赛展示。
+- 生产部署时需要单独处理模型 API Key 的安全存储，不建议把 `model-profiles.json` 明文部署到公开服务器。
+- `.stemotion/` 是运行态目录，包含本地索引、截图和日志，不应作为源代码提交。
+- 若部署到云端，建议把向量索引、搜索 API Key、模型 Key 迁移到服务端安全配置或托管密钥服务。
 
 ## 版本方向
 
-- BlueprintEditor：允许教师在生成前编辑 LearningBlueprint。
-- 更大规模 Verified Template Library：扩展数学、物理、化学、生物高频实验模板。
-- STEMotion Benchmark：比较自由生成、schema-grounded generation 和 template-based customization。
-- Study Protocol 支持：围绕 Research Mode 增加更规范的本地导出和研究说明。
+当前 `0.0.2` 目标是 XH202620 参赛展示版：
+
+- 做深大学物理力学默认 Skill。
+- 保持高等数学、大学化学、程序设计与数据结构的可切换配置。
+- 强化可追溯 RAG、结构化教学任务和斜抛运动可视化。
+- 保留深度交互生成作为 STEMotion 与普通 RAG 问答系统的差异化能力。
+
+后续可扩展方向：
+
+- 接入更权威的课程讲义、教材授权资料和教师自建知识库。
+- 替换本地 JSON/TF-IDF 为 Chroma、FAISS 或托管向量数据库。
+- 接入真实 Bing、SerpAPI、Tavily 或学校内部搜索服务。
+- 为圆周运动、简谐振动、动量守恒等模型增加更多 `visualization_hint`。
+- 增加教师/学生真实使用反馈和效果验证报告。

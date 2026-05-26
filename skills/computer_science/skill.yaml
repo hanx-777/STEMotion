@@ -1,0 +1,22 @@
+name: computer_science
+display_name: 程序设计与数据结构
+description: 面向程序设计与数据结构的学科 Skill，覆盖 C/C++ 编程、数据结构、算法分析、代码调试和复杂度分析。
+default_language: zh-CN
+knowledge_base_path: knowledge_base
+system_prompt_path: system_prompt.md
+answer_template_path: answer_template.md
+retrieval:
+  top_k: 4
+  score_threshold: 0.18
+  enable_web_search: true
+  web_top_k: 3
+tools:
+  - code_reasoning
+  - complexity_analysis
+  - test_case_design
+answer_requirements:
+  - 代码解释
+  - 错误定位
+  - 复杂度分析
+  - 测试用例建议
+  - 引用来源

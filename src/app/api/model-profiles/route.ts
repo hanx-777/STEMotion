@@ -1,75 +1,83 @@
 import { NextResponse } from 'next/server';
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { clearProfilesCache } from '@/lib/generation/llmClient';
+import {
+  deleteModelProfile,
+  readModelProfilesFile,
+  setActiveModelProfile,
+  toPublicProfiles,
+  upsertModelProfile,
+} from '@/lib/generation/modelProfiles';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('profiles');
 
-const MODEL_PROFILES_PATH = join(process.cwd(), 'model-profiles.json');
-
-interface ModelProfile {
-  label: string;
-  provider: 'anthropic' | 'openai';
-  baseURL: string;
-  apiKey: string;
-  model: string;
-  timeout?: number;
-}
-
-interface ModelProfilesFile {
-  activeProfile: string;
-  profiles: Record<string, ModelProfile>;
-}
-
-async function readProfilesFile(): Promise<ModelProfilesFile | null> {
-  try {
-    const raw = await readFile(MODEL_PROFILES_PATH, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 export async function GET() {
-  const data = await readProfilesFile();
-  if (!data) {
-    return NextResponse.json({ activeProfile: null, profiles: [] });
+  const data = await readModelProfilesFile();
+  return NextResponse.json(toPublicProfiles(data));
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const profile = body.profile ?? body;
+    const data = await upsertModelProfile(
+      {
+        id: String(profile.id ?? ''),
+        label: String(profile.label ?? ''),
+        provider: profile.provider,
+        baseURL: String(profile.baseURL ?? ''),
+        apiKey: typeof profile.apiKey === 'string' ? profile.apiKey : undefined,
+        model: String(profile.model ?? ''),
+        timeout: profile.timeout === undefined || profile.timeout === '' ? undefined : Number(profile.timeout),
+      },
+      { setActive: Boolean(body.setActive) },
+    );
+
+    clearProfilesCache();
+    log.info(`Profile saved: ${profile.id}`);
+    return NextResponse.json(toPublicProfiles(data));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
-
-  const profiles = Object.entries(data.profiles).map(([id, p]) => ({
-    id,
-    label: p.label,
-    provider: p.provider,
-    model: p.model,
-  }));
-
-  return NextResponse.json({ activeProfile: data.activeProfile, profiles });
 }
 
 export async function PATCH(request: Request) {
-  const body = await request.json();
-  const { activeProfile } = body;
+  try {
+    const body = await request.json();
+    const { activeProfile } = body;
 
-  if (!activeProfile || typeof activeProfile !== 'string') {
-    return NextResponse.json({ error: 'activeProfile is required' }, { status: 400 });
+    if (!activeProfile || typeof activeProfile !== 'string') {
+      return NextResponse.json({ error: 'activeProfile is required' }, { status: 400 });
+    }
+
+    const data = await setActiveModelProfile(activeProfile);
+    clearProfilesCache();
+    log.info(`Profile switched: ${activeProfile}`);
+
+    return NextResponse.json(toPublicProfiles(data));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message.includes('not found') ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
+}
 
-  const data = await readProfilesFile();
-  if (!data) {
-    return NextResponse.json({ error: 'model-profiles.json not found' }, { status: 404 });
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    const data = await deleteModelProfile(id);
+    clearProfilesCache();
+    log.info(`Profile deleted: ${id}`);
+
+    return NextResponse.json(toPublicProfiles(data));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message.includes('not found') ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
-
-  if (!data.profiles[activeProfile]) {
-    return NextResponse.json({ error: `Profile "${activeProfile}" not found` }, { status: 404 });
-  }
-
-  const previousProfile = data.activeProfile;
-  data.activeProfile = activeProfile;
-  await writeFile(MODEL_PROFILES_PATH, JSON.stringify(data, null, 2), 'utf-8');
-  clearProfilesCache();
-
-  log.info(`Profile switched: ${previousProfile} → ${activeProfile}`);
-
-  return NextResponse.json({ activeProfile });
 }

@@ -1,0 +1,23 @@
+name: physics_mechanics
+display_name: 大学物理力学
+description: 面向大学物理力学的学科 Skill，覆盖运动学、牛顿运动定律、抛体运动、圆周运动、功和能、动量守恒、简谐振动。
+default_language: zh-CN
+knowledge_base_path: knowledge_base
+system_prompt_path: system_prompt.md
+answer_template_path: answer_template.md
+retrieval:
+  top_k: 4
+  score_threshold: 0.18
+  enable_web_search: true
+  web_top_k: 3
+tools:
+  - formula_reasoning
+  - unit_check
+  - visualization_parameters
+answer_requirements:
+  - 分步推导
+  - 物理量定义
+  - 公式适用条件
+  - 单位检查
+  - 引用来源
+  - 必要时生成可视化参数

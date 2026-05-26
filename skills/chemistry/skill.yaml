@@ -1,0 +1,20 @@
+name: chemistry
+display_name: 大学化学
+description: 面向大学化学的学科 Skill，覆盖化学反应、物质结构、热力学基础、化学平衡和实验安全。
+default_language: zh-CN
+knowledge_base_path: knowledge_base
+system_prompt_path: system_prompt.md
+answer_template_path: answer_template.md
+retrieval:
+  top_k: 4
+  score_threshold: 0.18
+  enable_web_search: true
+  web_top_k: 3
+tools:
+  - reaction_check
+  - safety_hint
+answer_requirements:
+  - 反应条件
+  - 方程式规范
+  - 实验安全提醒
+  - 引用来源

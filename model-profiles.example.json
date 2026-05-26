@@ -1,29 +1,21 @@
 {
-  "activeProfile": "mimo",
+  "activeProfile": "openai-main",
   "profiles": {
-    "mimo": {
-      "label": "Mimo V2 Pro",
-      "provider": "anthropic",
-      "baseURL": "https://api.xiaomimo.com/anthropic",
-      "apiKey": "tp-your-token-here",
-      "model": "mimo-v2-pro",
-      "timeout": 3000000
-    },
-    "local-claude": {
-      "label": "Claude (本地代理)",
-      "provider": "anthropic",
-      "baseURL": "http://127.0.0.1:8080",
-      "apiKey": "sk-your-token-here",
-      "model": "claude-opus-4-6",
-      "timeout": 3000000
-    },
-    "gemini-flash": {
-      "label": "Gemini Flash",
+    "openai-main": {
+      "label": "OpenAI Main",
       "provider": "openai",
-      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
-      "apiKey": "your-google-api-key",
-      "model": "gemini-2.5-flash-preview-05-20",
-      "timeout": 3000000
+      "baseURL": "https://api.openai.com/v1",
+      "apiKey": "YOUR_OPENAI_API_KEY",
+      "model": "gpt-4.1",
+      "timeout": 300000
+    },
+    "claude-main": {
+      "label": "Claude Main",
+      "provider": "anthropic",
+      "baseURL": "https://api.anthropic.com",
+      "apiKey": "YOUR_CLAUDE_API_KEY",
+      "model": "claude-opus-4-1",
+      "timeout": 300000
     }
   }
 }
