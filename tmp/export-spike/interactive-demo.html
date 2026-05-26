@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ohm Law Export Spike</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; font-family: Arial, sans-serif; background: #f8fafc; color: #172033; }
+    body { display: grid; place-items: center; padding: 18px; }
+    .widget { width: min(100%, 1180px); min-height: 680px; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 14px; }
+    header { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid #dbe3ef; border-radius: 8px; background: #ffffff; }
+    h1 { margin: 0 0 4px; font-size: 26px; }
+    p { margin: 0; line-height: 1.5; }
+    .panel { border: 1px solid #dbe3ef; border-radius: 8px; background: #ffffff; padding: 14px; }
+    .stage { position: relative; min-height: 470px; overflow: hidden; }
+    canvas { width: 100%; height: 390px; border: 1px solid #cbd5e1; border-radius: 8px; background: linear-gradient(180deg, #eef6ff 0%, #ffffff 100%); }
+    .controls { display: grid; gap: 12px; }
+    label { display: grid; gap: 5px; font-size: 13px; font-weight: 700; }
+    input[type="range"] { width: 100%; accent-color: #2563eb; }
+    button { min-height: 38px; border: 0; border-radius: 8px; padding: 0 12px; background: #172033; color: #ffffff; font-weight: 700; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .metric { border-radius: 8px; background: #eff6ff; padding: 10px; font-weight: 800; }
+    .formula { font-size: 20px; font-weight: 900; color: #1d4ed8; }
+    .quiz button { width: 100%; margin-top: 8px; background: #f8fafc; color: #172033; border: 1px solid #cbd5e1; text-align: left; }
+    .highlight { outline: 4px solid #f59e0b; outline-offset: 3px; }
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      .widget { grid-template-columns: 1fr; min-height: auto; }
+      canvas { height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget">
+    <header>
+      <h1>Ohm Law Interactive Snapshot</h1>
+      <p>Adjust voltage and resistance to observe how current changes according to I = U / R.</p>
+    </header>
+    <section class="panel stage" data-role="simulation-main" id="simulation-main">
+      <canvas id="circuit" width="820" height="430" aria-label="Simple circuit visualization"></canvas>
+    </section>
+    <aside class="panel controls" data-role="control-panel" id="control-panel">
+      <label>Voltage U: <span id="voltage-value">6.0 V</span><input id="voltage" type="range" min="1" max="12" step="0.5" value="6"></label>
+      <label>Resistance R: <span id="resistance-value">6.0 ohm</span><input id="resistance" type="range" min="1" max="12" step="0.5" value="6"></label>
+      <div class="row">
+        <button id="start">Pause</button>
+        <button id="reset">Reset</button>
+      </div>
+      <section class="metric" data-role="formula-panel" id="formula-panel">
+        <div class="formula">I = U / R = <span id="current-value">1.00 A</span></div>
+      </section>
+      <section class="metric" data-role="observation-panel" id="observation-panel">
+        With resistance fixed, increasing voltage increases current.
+      </section>
+      <section class="quiz" data-role="quiz-panel" id="quiz-panel">
+        <strong>Quick check</strong>
+        <button id="quiz-answer">If U doubles and R stays fixed, current doubles.</button>
+      </section>
+    </aside>
+  </main>
+  <script type="application/json" id="widget-config">{"concept":"Ohm Law","variables":[{"name":"voltage","symbol":"U","unit":"V"},{"name":"resistance","symbol":"R","unit":"ohm"},{"name":"current","symbol":"I","unit":"A"}],"defaultState":{"voltage":6,"resistance":6,"running":true},"messageTargets":[{"id":"simulation-main","purpose":"circuit visualization"},{"id":"control-panel","purpose":"student controls"},{"id":"observation-panel","purpose":"relationship observation"},{"id":"formula-panel","purpose":"formula readout"},{"id":"quiz-panel","purpose":"quick check"}]}</script>
+  <script>
+    const canvas = document.getElementById('circuit');
+    const ctx = canvas.getContext('2d');
+    const voltage = document.getElementById('voltage');
+    const resistance = document.getElementById('resistance');
+    const voltageValue = document.getElementById('voltage-value');
+    const resistanceValue = document.getElementById('resistance-value');
+    const currentValue = document.getElementById('current-value');
+    const observation = document.getElementById('observation-panel');
+    let running = true;
+    let pulse = 0;
+
+    function numberValue(input) { return Number(input.value); }
+    function current() { return numberValue(voltage) / numberValue(resistance); }
+    function updateText() {
+      const u = numberValue(voltage);
+      const r = numberValue(resistance);
+      const i = current();
+      voltageValue.textContent = u.toFixed(1) + ' V';
+      resistanceValue.textContent = r.toFixed(1) + ' ohm';
+      currentValue.textContent = i.toFixed(2) + ' A';
+      observation.textContent = r <= 4
+        ? 'Lower resistance allows more current for the same voltage.'
+        : 'With resistance fixed, increasing voltage increases current.';
+    }
+    function draw() {
+      const u = numberValue(voltage);
+      const r = numberValue(resistance);
+      const i = current();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = '#334155';
+      ctx.strokeRect(120, 105, 570, 205);
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(82, 145, 74, 130);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText(u.toFixed(1) + 'V', 94, 218);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(360, 82, 110, 48);
+      ctx.fillStyle = '#172033';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText(r.toFixed(1) + 'ohm', 386, 113);
+      const dots = Math.max(3, Math.round(i * 4));
+      for (let n = 0; n < dots; n += 1) {
+        const x = 175 + ((pulse * 4 + n * 52) % 470);
+        ctx.beginPath();
+        ctx.arc(x, 105, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#22c55e';
+        ctx.fill();
+      }
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 28px Arial';
+      ctx.fillText('Current I = ' + i.toFixed(2) + ' A', 245, 370);
+    }
+    function tick() {
+      if (running) pulse += 1;
+      updateText();
+      draw();
+      requestAnimationFrame(tick);
+    }
+    function mark(target) {
+      const element = document.querySelector(target || '[data-role="simulation-main"]');
+      if (!element) return;
+      element.classList.add('highlight');
+      setTimeout(() => element.classList.remove('highlight'), 1200);
+    }
+    voltage.addEventListener('input', updateText);
+    resistance.addEventListener('input', updateText);
+    document.getElementById('start').addEventListener('click', (event) => {
+      running = !running;
+      event.currentTarget.textContent = running ? 'Pause' : 'Start';
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      voltage.value = '6';
+      resistance.value = '6';
+      running = true;
+      document.getElementById('start').textContent = 'Pause';
+      updateText();
+    });
+    document.getElementById('quiz-answer').addEventListener('click', () => {
+      observation.textContent = 'Correct: I = U / R, so doubling U doubles I when R is unchanged.';
+    });
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type === 'SET_WIDGET_STATE' && data.state) {
+        if (data.state.voltage !== undefined) voltage.value = String(data.state.voltage);
+        if (data.state.resistance !== undefined) resistance.value = String(data.state.resistance);
+        if (data.state.running !== undefined) running = Boolean(data.state.running);
+        updateText();
+      }
+      if (data.type === 'HIGHLIGHT_ELEMENT') mark(data.target);
+      if (data.type === 'ANNOTATE_ELEMENT') {
+        const element = document.querySelector(data.target || '[data-role="observation-panel"]');
+        if (element && data.content) element.setAttribute('title', String(data.content));
+      }
+      if (data.type === 'REVEAL_ELEMENT') {
+        const element = document.querySelector(data.target || '[data-role="formula-panel"]');
+        if (element) element.hidden = false;
+      }
+    });
+    updateText();
+    tick();
+    if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
+  </script>
+</body>
+</html>

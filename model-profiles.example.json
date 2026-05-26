@@ -1,0 +1,29 @@
+{
+  "activeProfile": "mimo",
+  "profiles": {
+    "mimo": {
+      "label": "Mimo V2 Pro",
+      "provider": "anthropic",
+      "baseURL": "https://api.xiaomimo.com/anthropic",
+      "apiKey": "tp-your-token-here",
+      "model": "mimo-v2-pro",
+      "timeout": 3000000
+    },
+    "local-claude": {
+      "label": "Claude (本地代理)",
+      "provider": "anthropic",
+      "baseURL": "http://127.0.0.1:8080",
+      "apiKey": "sk-your-token-here",
+      "model": "claude-opus-4-6",
+      "timeout": 3000000
+    },
+    "gemini-flash": {
+      "label": "Gemini Flash",
+      "provider": "openai",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "apiKey": "your-google-api-key",
+      "model": "gemini-2.5-flash-preview-05-20",
+      "timeout": 3000000
+    }
+  }
+}
