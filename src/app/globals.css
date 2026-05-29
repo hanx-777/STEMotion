@@ -112,6 +112,14 @@ body {
   box-shadow: var(--stemotion-shadow);
 }
 
+.katex-display {
+  margin: 0;
+}
+
+.katex {
+  font-size: 1.02em;
+}
+
 .stemotion-pressable {
   transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
@@ -122,6 +130,12 @@ body {
 
 .stemotion-pressable:active {
   transform: translateY(1px);
+}
+
+/* GSAP reveal fallback — applied before GSAP initializes to prevent flash */
+.gsap-reveal-item {
+  opacity: 0;
+  transform: translateY(16px);
 }
 
 .projectile-pulse {

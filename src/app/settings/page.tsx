@@ -1,12 +1,12 @@
 'use client';
 
 import AppShell from '@/components/layout/AppShell';
-import ModelSettingsConsole from '@/components/settings/ModelSettingsConsole';
+import SettingsWorkbench from '@/features/settings/ui/SettingsWorkbench';
 
 export default function SettingsPage() {
   return (
     <AppShell>
-      <ModelSettingsConsole />
+      <SettingsWorkbench />
     </AppShell>
   );
 }

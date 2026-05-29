@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 import I18nProvider from '@/components/layout/I18nProvider';
 import StoreHydration from '@/components/StoreHydration';

@@ -1,14 +1,16 @@
 'use client';
 
 import type React from 'react';
-import { Beaker, BookOpenCheck, Info, Library, Menu, PanelRightClose, PanelRightOpen, Settings, Sparkles } from 'lucide-react';
+import { BookOpen, GraduationCap, Info, LineChart, Library, Menu, PanelRightClose, PanelRightOpen, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/lib/stores/uiStore';
+import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import ModelProfileSwitcher from './ModelProfileSwitcher';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const navRef = useGsapReveal<HTMLElement>({ stagger: 0.06, y: 12, delay: 0.2 });
   const { sidebarOpen, rightPanelOpen, toggleSidebar, toggleRightPanel } = useUIStore();
   const pathname = usePathname();
   const { t, i18n } = useTranslation();
@@ -19,9 +21,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const navItems = [
-    { name: '实验工作台', href: '/', icon: Beaker },
-    { name: '深度交互', href: '/deep-interaction', icon: Sparkles },
-    { name: '学科问答', href: '/rag', icon: BookOpenCheck },
+    { name: '学生助学', href: '/student', icon: BookOpen },
+    { name: '教师助教', href: '/teacher', icon: GraduationCap },
+    { name: '可视化演示', href: '/visualization', icon: LineChart },
     { name: '交互库', href: '/interactions', icon: Library },
   ];
 
@@ -34,15 +36,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
   const headerTitle =
-    pathname === '/deep-interaction'
-      ? '深度交互模式'
-      : pathname === '/rag'
-        ? '大学物理力学智能助学系统'
-        : pathname === '/settings'
-          ? '模型与 API 设置'
-          : pathname === '/interactions' || pathname === '/experiments'
-            ? '交互库'
-            : '实验工作台';
+    pathname === '/student' || pathname === '/rag'
+      ? '学生助学'
+      : pathname === '/teacher'
+        ? '教师助教'
+        : pathname === '/visualization'
+          ? '可视化演示'
+          : pathname === '/settings'
+            ? '模型与 API 设置'
+            : pathname === '/interactions' || pathname === '/experiments'
+              ? '交互库'
+              : pathname === '/deep-interaction'
+                ? '深度交互模式'
+                : pathname === '/'
+                  ? '实验工作台'
+                  : 'STEMotion';
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[var(--stemotion-bg)] font-sans text-[var(--stemotion-ink)] selection:bg-teal-100 selection:text-teal-900">
@@ -63,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex flex-1 flex-col justify-between py-6">
-          <nav className="space-y-1.5 px-3">
+          <nav ref={navRef} className="space-y-1.5 px-3">
             {navItems.map((item) => (
               <Link
                 key={item.name}

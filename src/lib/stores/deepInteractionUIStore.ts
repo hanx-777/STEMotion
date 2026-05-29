@@ -16,6 +16,7 @@ interface DeepInteractionUIState {
   simulationRunning: boolean;
   simulationResetSignal: number;
   playbackSpeed: number;
+  pendingPrompt: string;
   setTypeFilter: (filter: DeepInteractionType | 'all') => void;
   setPlaybackStatus: (status: PlaybackStatus) => void;
   setCurrentStepIndex: (index: number) => void;
@@ -30,6 +31,7 @@ interface DeepInteractionUIState {
   resetSimulation: () => void;
   setPlaybackSpeed: (speed: number) => void;
   resetPlayback: () => void;
+  setPendingPrompt: (prompt: string) => void;
 }
 
 export const useDeepInteractionUIStore = create<DeepInteractionUIState>((set) => ({
@@ -46,6 +48,7 @@ export const useDeepInteractionUIStore = create<DeepInteractionUIState>((set) =>
   simulationRunning: false,
   simulationResetSignal: 0,
   playbackSpeed: 1,
+  pendingPrompt: '',
 
   setTypeFilter: (selectedTypeFilter) => set({ selectedTypeFilter }),
   setPlaybackStatus: (playbackStatus) => set({ playbackStatus }),
@@ -84,4 +87,5 @@ export const useDeepInteractionUIStore = create<DeepInteractionUIState>((set) =>
       parameterOverrides: {},
       simulationRunning: false,
     }),
+  setPendingPrompt: (pendingPrompt) => set({ pendingPrompt }),
 }));

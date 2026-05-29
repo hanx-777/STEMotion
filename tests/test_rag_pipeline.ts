@@ -31,6 +31,8 @@ test('RAG retrieval is isolated by subject and still uses the answer generator',
   assert.ok(result.retrieved_chunks.length > 0);
   assert.ok(result.retrieved_chunks.every((chunk) => chunk.metadata.subject === 'physics_mechanics'));
   assert.ok(result.citations.every((citation) => citation.source_type !== 'local' || citation.subject === 'physics_mechanics'));
+  assert.ok(result.quality_report);
+  assert.ok(result.quality_report.checks.some((check) => check.name === '引用一致性'));
   assert.ok(state.prompts[0].includes('[L1]'));
 });
 
@@ -50,6 +52,7 @@ test('RAG asks the model even when no reliable sources are found', async () => {
   assert.equal(result.retrieved_chunks.length, 0);
   assert.ok(result.answer.includes('当前知识库和网络检索中未找到可靠依据'));
   assert.ok(result.answer.includes('这是基于通用知识的模型回答。'));
+  assert.equal(result.quality_report?.checks.find((check) => check.name === '依据不足提示')?.passed, true);
   assert.ok(state.prompts[0].includes('不得编造引用'));
 });
 

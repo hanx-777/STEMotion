@@ -1,0 +1,18 @@
+{
+  "subject": "physics_mechanics",
+  "displayName": "大学物理力学",
+  "language": "zh-CN",
+  "chunking": {
+    "targetTokens": 500,
+    "maxTokens": 900,
+    "minTokens": 120
+  },
+  "retrieval": {
+    "topK": 8,
+    "keywordWeight": 0.35,
+    "vectorWeight": 0.45,
+    "subjectWeight": 0.1,
+    "titleBoost": 0.05,
+    "contentTypeBoost": 0.05
+  }
+}

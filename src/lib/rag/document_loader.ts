@@ -3,11 +3,32 @@ import { basename, extname, join, relative } from 'path';
 import type { RagDocument } from './types';
 
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt', '.pdf']);
+const SKIP_DIRS = new Set(['processed', 'index', 'config', 'sources']);
 
+/**
+ * Load documents from a knowledge base directory.
+ * Supports both layouts:
+ *   - Old: knowledge_base/*.md (flat)
+ *   - New: knowledge_base/sources/*.md (structured)
+ */
 export async function loadDocumentsFromKnowledgeBase(subject: string, knowledgeBasePath: string): Promise<RagDocument[]> {
-  const files = await listKnowledgeFiles(knowledgeBasePath);
-  const documents = await Promise.all(files.map((file) => loadKnowledgeFile(subject, knowledgeBasePath, file)));
+  // Check if sources/ subdirectory exists (new layout)
+  const sourcesDir = join(knowledgeBasePath, 'sources');
+  const hasSourcesDir = await directoryExists(sourcesDir);
+  const scanRoot = hasSourcesDir ? sourcesDir : knowledgeBasePath;
+
+  const files = await listKnowledgeFiles(scanRoot);
+  const documents = await Promise.all(files.map((file) => loadKnowledgeFile(subject, scanRoot, file)));
   return documents.flat().filter((doc) => doc.content.trim().length > 0);
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    return s.isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 async function listKnowledgeFiles(root: string): Promise<string[]> {
@@ -18,6 +39,8 @@ async function listKnowledgeFiles(root: string): Promise<string[]> {
     for (const entry of entries) {
       const fullPath = join(root, entry.name);
       if (entry.isDirectory()) {
+        // Skip non-content directories when scanning the root (old layout)
+        if (SKIP_DIRS.has(entry.name)) continue;
         files.push(...await listKnowledgeFiles(fullPath));
       } else if (entry.isFile() && SUPPORTED_EXTENSIONS.has(extname(entry.name).toLowerCase())) {
         files.push(fullPath);

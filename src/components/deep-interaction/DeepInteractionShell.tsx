@@ -15,6 +15,7 @@ import ArtifactCard from './ArtifactCard';
 import DeepInteractionRightPanel from './DeepInteractionRightPanel';
 import DeepInteractionStage from './DeepInteractionStage';
 import InteractionTypeCards from './InteractionTypeCards';
+import PhysicsCaseCards from './PhysicsCaseCards';
 import PlaybackControlBar from './PlaybackControlBar';
 import SessionList from './SessionList';
 
@@ -29,6 +30,7 @@ export default function DeepInteractionShell() {
   const currentSession = useInteractionSessionStore((state) => state.getCurrentSession());
   const selectedType = useDeepInteractionUIStore((state) => state.selectedTypeFilter);
   const setPlaybackStatus = useDeepInteractionUIStore((state) => state.setPlaybackStatus);
+  const setPendingPrompt = useDeepInteractionUIStore((state) => state.setPendingPrompt);
   const progressStore = useGenerationProgressStore();
   const logResearchEvent = useResearchLogStore((state) => state.logEvent);
   const artifactsBySession = useArtifactStore((state) => state.artifactsBySession);
@@ -73,7 +75,7 @@ export default function DeepInteractionShell() {
     });
 
     try {
-      const response = await fetch('/api/deep-interaction/generate', {
+      const response = await fetch('/api/v1/deep-interaction/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,7 +144,7 @@ export default function DeepInteractionShell() {
     }
 
     try {
-      const response = await fetch('/api/deep-interaction/follow-up', {
+      const response = await fetch('/api/v1/deep-interaction/follow-up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -464,7 +466,14 @@ export default function DeepInteractionShell() {
         <div className={`border-b px-4 py-2 text-xs font-bold ${selectedMeta.accent}`}>
           当前生成方式：{selectedMeta.label}
         </div>
-        <DeepInteractionStage artifact={currentArtifact} isGenerating={isGenerating} />
+        <div className="custom-scrollbar flex-1 overflow-y-auto">
+          {!visibleCurrentSession && (
+            <div className="p-4">
+              <PhysicsCaseCards onSelect={(p) => setPendingPrompt(p)} />
+            </div>
+          )}
+          <DeepInteractionStage artifact={currentArtifact} isGenerating={isGenerating} />
+        </div>
         <PlaybackControlBar artifact={currentArtifact} />
       </main>
 

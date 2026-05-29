@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Send } from 'lucide-react';
 import type {
@@ -21,6 +21,7 @@ import AgentReviewPanel from './AgentReviewPanel';
 import QualityExplanationPanel from './QualityExplanationPanel';
 import StudyModePanel from './StudyModePanel';
 import TemplateMatchPanel from './TemplateMatchPanel';
+import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 import { useResearchLogStore } from '@/lib/stores/researchLogStore';
 
 export default function DeepInteractionRightPanel({
@@ -43,7 +44,25 @@ export default function DeepInteractionRightPanel({
   onFollowUp: (prompt: string) => void;
 }) {
   const searchParams = useSearchParams();
+  const setPendingPrompt = useDeepInteractionUIStore((state) => state.setPendingPrompt);
   const [prompt, setPrompt] = useState(() => searchParams.get('prompt') ?? '');
+  const [pendingApplied, setPendingApplied] = useState(false);
+
+  const pendingPrompt = useSyncExternalStore(
+    useDeepInteractionUIStore.subscribe,
+    () => useDeepInteractionUIStore.getState().pendingPrompt,
+    () => '',
+  );
+
+  if (pendingPrompt && !pendingApplied) {
+    setPendingApplied(true);
+    setPrompt(pendingPrompt);
+    setPendingPrompt('');
+  }
+
+  if (!pendingPrompt && pendingApplied) {
+    setPendingApplied(false);
+  }
   const [planningPrompt, setPlanningPrompt] = useState('');
   const [planningSessionId, setPlanningSessionId] = useState('');
   const [planningRound, setPlanningRound] = useState(0);
@@ -98,7 +117,7 @@ export default function DeepInteractionRightPanel({
     }
 
     try {
-      const response = await fetch('/api/deep-interaction/planning', {
+      const response = await fetch('/api/v1/deep-interaction/planning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

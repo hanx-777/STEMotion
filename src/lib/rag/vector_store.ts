@@ -1,11 +1,13 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname } from 'path';
+import { cosineSimilarity, safeEmbedDocuments, safeEmbedQuery, type EmbeddingProvider } from './embeddings';
 import type { RagChunk, RetrievedChunk } from './types';
 
 interface VectorStoreRecord {
   content: string;
   metadata: RagChunk['metadata'];
   term_frequency: Record<string, number>;
+  embedding?: number[];
 }
 
 interface VectorStoreIndex {
@@ -13,16 +15,32 @@ interface VectorStoreIndex {
   created_at: string;
   records: VectorStoreRecord[];
   document_frequency: Record<string, number>;
+  embedding_provider?: string;
+}
+
+export interface HybridSearchOptions {
+  lexicalTopK: number;
+  embeddingTopK: number;
+  rerankTopK: number;
+  embeddingProvider?: EmbeddingProvider | null;
+}
+
+export interface HybridSearchResult extends RetrievedChunk {
+  lexical_score: number;
+  embedding_score: number;
+  retrieval_method: 'lexical' | 'embedding' | 'hybrid';
 }
 
 export class LocalVectorStore {
   constructor(private readonly indexPath: string) {}
 
-  async save(subject: string, chunks: RagChunk[]): Promise<void> {
-    const records = chunks.map((chunk) => ({
+  async save(subject: string, chunks: RagChunk[], options: { embeddingProvider?: EmbeddingProvider | null } = {}): Promise<void> {
+    const embeddings = await safeEmbedDocuments(options.embeddingProvider ?? null, chunks.map((chunk) => chunk.content));
+    const records = chunks.map((chunk, index) => ({
       content: chunk.content,
       metadata: chunk.metadata,
       term_frequency: countTerms(tokenize(chunk.content)),
+      ...(embeddings?.[index]?.length ? { embedding: embeddings[index] } : {}),
     }));
     const document_frequency = computeDocumentFrequency(records);
     const index: VectorStoreIndex = {
@@ -30,6 +48,7 @@ export class LocalVectorStore {
       created_at: new Date().toISOString(),
       records,
       document_frequency,
+      embedding_provider: embeddings ? options.embeddingProvider?.name : undefined,
     };
 
     await mkdir(dirname(this.indexPath), { recursive: true });
@@ -37,29 +56,72 @@ export class LocalVectorStore {
   }
 
   async search(query: string, topK: number): Promise<RetrievedChunk[]> {
+    const results = await this.searchHybrid(query, {
+      lexicalTopK: topK,
+      embeddingTopK: topK,
+      rerankTopK: topK,
+    });
+    return results.map((result) => ({
+      content: result.content,
+      score: result.score,
+      metadata: result.metadata,
+    }));
+  }
+
+  async searchHybrid(query: string, options: HybridSearchOptions): Promise<HybridSearchResult[]> {
     const index = await this.load();
     const queryTerms = countTerms(tokenize(query));
     const queryKeys = Object.keys(queryTerms);
     if (queryKeys.length === 0) return [];
+    const queryEmbedding = await safeEmbedQuery(options.embeddingProvider ?? null, query);
 
-    const scored = index.records.map((record) => ({
+    const scored = index.records.map((record) => {
+      const lexicalScore = scoreRecord(query, queryTerms, record, index);
+      const embeddingScore = queryEmbedding && record.embedding
+        ? normalizeEmbeddingScore(cosineSimilarity(queryEmbedding, record.embedding))
+        : 0;
+      const score = rerankScore(lexicalScore, embeddingScore);
+      const retrievalMethod: 'lexical' | 'embedding' | 'hybrid' = embeddingScore > 0 && lexicalScore > 0
+        ? 'hybrid'
+        : embeddingScore > lexicalScore
+          ? 'embedding'
+          : 'lexical';
+      return {
       content: record.content,
       metadata: {
         ...record.metadata,
         source_type: 'local' as const,
+        retrieval_method: retrievalMethod,
+        lexical_score: lexicalScore,
+        embedding_score: embeddingScore,
+        normalized_score: score,
       },
-      score: scoreRecord(query, queryTerms, record, index),
-    }));
+      score,
+      lexical_score: lexicalScore,
+      embedding_score: embeddingScore,
+      retrieval_method: retrievalMethod,
+      };
+    });
 
     return scored
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+      .slice(0, options.rerankTopK);
   }
 
   private async load(): Promise<VectorStoreIndex> {
     return JSON.parse(await readFile(this.indexPath, 'utf-8')) as VectorStoreIndex;
   }
+}
+
+function normalizeEmbeddingScore(score: number): number {
+  return Number(Math.max(0, Math.min(1, (score + 1) / 2)).toFixed(4));
+}
+
+function rerankScore(lexicalScore: number, embeddingScore: number): number {
+  if (embeddingScore <= 0) return lexicalScore;
+  if (lexicalScore <= 0) return Number((embeddingScore * 0.78).toFixed(4));
+  return Number(Math.min(1, lexicalScore * 0.58 + embeddingScore * 0.42 + 0.04).toFixed(4));
 }
 
 export function tokenize(value: string): string[] {

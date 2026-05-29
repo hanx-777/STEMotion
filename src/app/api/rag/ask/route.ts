@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { askRag } from '@/lib/rag/rag_pipeline';
+import { askRagLegacyAdapter } from '@/features/rag/application/ragAskService';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'question is required' }, { status: 400 });
     }
 
-    const result = await askRag({
+    const result = await askRagLegacyAdapter({
       question: body.question,
       subject: body.subject,
       use_web_search: body.use_web_search,

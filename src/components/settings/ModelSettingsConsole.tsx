@@ -85,7 +85,7 @@ export default function ModelSettingsConsole() {
     async function loadInitialProfiles() {
       setLoading(true);
       try {
-        const response = await fetch('/api/model-profiles');
+        const response = await fetch('/api/v1/model-profiles');
         const data = await response.json() as ProfilesResponse;
         if (!mounted) return;
 
@@ -125,7 +125,7 @@ export default function ModelSettingsConsole() {
   async function refreshProfiles(preferredId?: string) {
     setLoading(true);
     try {
-      const response = await fetch('/api/model-profiles');
+      const response = await fetch('/api/v1/model-profiles');
       const data = await response.json() as ProfilesResponse;
       setProfiles(data.profiles ?? []);
       setActiveProfile(data.activeProfile ?? null);
@@ -190,7 +190,7 @@ export default function ModelSettingsConsole() {
     setSaving(true);
     setStatus(null);
     try {
-      const response = await fetch('/api/model-profiles', {
+      const response = await fetch('/api/v1/model-profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +219,7 @@ export default function ModelSettingsConsole() {
     setSaving(true);
     setStatus(null);
     try {
-      const response = await fetch('/api/model-profiles', {
+      const response = await fetch('/api/v1/model-profiles', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeProfile: selectedId }),
@@ -247,7 +247,7 @@ export default function ModelSettingsConsole() {
     setSaving(true);
     setStatus(null);
     try {
-      const response = await fetch(`/api/model-profiles?id=${encodeURIComponent(selectedId)}`, { method: 'DELETE' });
+      const response = await fetch(`/api/v1/model-profiles/${encodeURIComponent(selectedId)}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? '删除失败');
 
@@ -270,7 +270,7 @@ export default function ModelSettingsConsole() {
     setFetchingModels(true);
     setStatus(null);
     try {
-      const response = await fetch('/api/model-profiles/models', {
+      const response = await fetch('/api/v1/model-profiles/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

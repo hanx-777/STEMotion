@@ -1,41 +1,18 @@
 import { NextResponse } from 'next/server';
-import { clearProfilesCache } from '@/lib/generation/llmClient';
 import {
-  deleteModelProfile,
-  readModelProfilesFile,
-  setActiveModelProfile,
-  toPublicProfiles,
-  upsertModelProfile,
-} from '@/lib/generation/modelProfiles';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('profiles');
+  activateModelProfileV1,
+  deleteModelProfileV1,
+  getModelProfilesV1,
+  saveModelProfileV1,
+} from '@/features/settings/application/modelProfileService';
 
 export async function GET() {
-  const data = await readModelProfilesFile();
-  return NextResponse.json(toPublicProfiles(data));
+  return NextResponse.json(await getModelProfilesV1());
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const profile = body.profile ?? body;
-    const data = await upsertModelProfile(
-      {
-        id: String(profile.id ?? ''),
-        label: String(profile.label ?? ''),
-        provider: profile.provider,
-        baseURL: String(profile.baseURL ?? ''),
-        apiKey: typeof profile.apiKey === 'string' ? profile.apiKey : undefined,
-        model: String(profile.model ?? ''),
-        timeout: profile.timeout === undefined || profile.timeout === '' ? undefined : Number(profile.timeout),
-      },
-      { setActive: Boolean(body.setActive) },
-    );
-
-    clearProfilesCache();
-    log.info(`Profile saved: ${profile.id}`);
-    return NextResponse.json(toPublicProfiles(data));
+    return NextResponse.json(await saveModelProfileV1(await request.json()));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
@@ -50,11 +27,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'activeProfile is required' }, { status: 400 });
     }
 
-    const data = await setActiveModelProfile(activeProfile);
-    clearProfilesCache();
-    log.info(`Profile switched: ${activeProfile}`);
-
-    return NextResponse.json(toPublicProfiles(data));
+    return NextResponse.json(await activateModelProfileV1(activeProfile));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const status = message.includes('not found') ? 404 : 400;
@@ -70,11 +43,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const data = await deleteModelProfile(id);
-    clearProfilesCache();
-    log.info(`Profile deleted: ${id}`);
-
-    return NextResponse.json(toPublicProfiles(data));
+    return NextResponse.json(await deleteModelProfileV1(id));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const status = message.includes('not found') ? 404 : 400;

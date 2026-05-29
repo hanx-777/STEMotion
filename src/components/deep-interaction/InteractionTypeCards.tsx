@@ -5,6 +5,7 @@ import { Box, FlaskConical, Gamepad2, Network } from 'lucide-react';
 import { interactionTypeMeta, interactionTypeOrder } from '@/lib/deep-interaction/rendererRegistry';
 import type { DeepInteractionType } from '@/lib/deep-interaction/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
+import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 
 const icons: Record<DeepInteractionType, React.ElementType> = {
   '3d_visualization': Box,
@@ -16,11 +17,12 @@ const icons: Record<DeepInteractionType, React.ElementType> = {
 export default function InteractionTypeCards({ compact = false }: { compact?: boolean }) {
   const selected = useDeepInteractionUIStore((state) => state.selectedTypeFilter);
   const setTypeFilter = useDeepInteractionUIStore((state) => state.setTypeFilter);
+  const cardsRef = useGsapReveal<HTMLDivElement>({ stagger: 0.12, y: 24 });
 
   return (
     <div>
       <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">交互方式</div>
-      <div className={compact ? 'space-y-2' : 'grid gap-3 md:grid-cols-2 xl:grid-cols-4'}>
+      <div ref={cardsRef} className={compact ? 'space-y-2' : 'grid gap-3 md:grid-cols-2 xl:grid-cols-4'}>
         {interactionTypeOrder.map((type) => {
           const meta = interactionTypeMeta[type];
           const Icon = icons[type];

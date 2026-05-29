@@ -51,3 +51,9 @@ function createChunkId(subject: string, source: string, index: number): string {
   const safeSource = source.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return `${subject}_${safeSource || 'chunk'}_${String(index + 1).padStart(3, '0')}`;
 }
+
+/**
+ * Re-export the semantic chunker for new code paths.
+ * The old splitDocuments() above is kept for backward compatibility.
+ */
+export { chunkMarkdown } from './markdown_chunker';

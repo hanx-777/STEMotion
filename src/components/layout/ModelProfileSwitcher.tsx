@@ -16,7 +16,7 @@ export default function ModelProfileSwitcher() {
 
   useEffect(() => {
     const loadProfiles = () => {
-      fetch('/api/model-profiles')
+      fetch('/api/v1/model-profiles')
         .then((res) => res.json())
         .then((data) => {
           setProfiles(data.profiles ?? []);
@@ -34,7 +34,7 @@ export default function ModelProfileSwitcher() {
     setSwitching(true);
     setOpen(false);
     try {
-      const res = await fetch('/api/model-profiles', {
+      const res = await fetch('/api/v1/model-profiles', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeProfile: id }),

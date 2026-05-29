@@ -21,12 +21,14 @@
 | Case 01 | `step_solution` | `physics_case_01_projectile_motion.md` | 待补充 |
 | Case 02 | `knowledge_qa` | `physics_case_02_circular_motion.md` | 待补充 |
 | Case 03 | `misconception_diagnosis` | `physics_case_03_misconception.md` | 待补充 |
+| Case 04 | `teacher_prep` | `test_cases.md` | 待补充 |
 
 ## 输出结果截图位置
 
 - Case 01：待补充
 - Case 02：待补充
 - Case 03：待补充
+- Case 04：待补充
 
 ## 与标准答案对比
 
@@ -46,6 +48,15 @@
 - Case 01：待补充
 - Case 02：待补充
 - Case 03：待补充
+- Case 04：待补充
+
+## RAG 指标记录
+
+请参考 [rag_metrics.md](rag_metrics.md) 填写答案正确率、引用命中率、结构完整率、可视化触发率、本地知识库优先率、低依据提示率和平均响应时间。
+
+## 实际输出记录
+
+真实运行输出请记录到 [results/](results/) 目录。当前目录仅提供模板，不包含伪造截图、响应时间或模型输出。
 
 ## 用户反馈摘要
 

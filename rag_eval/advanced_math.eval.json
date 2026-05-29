@@ -1,0 +1,42 @@
+[
+  {
+    "query": "导数的定义是什么？",
+    "subject": "advanced_math",
+    "expectedTopics": ["derivative_basic"],
+    "expectedContentTypes": ["definition"],
+    "mustContain": ["极限", "导数"],
+    "shouldRetrieve": ["advanced_math.derivative_basic"]
+  },
+  {
+    "query": "求导法则有哪些？",
+    "subject": "advanced_math",
+    "expectedTopics": ["derivative_basic"],
+    "expectedContentTypes": ["formula", "summary"],
+    "mustContain": ["求导"],
+    "shouldRetrieve": ["advanced_math.derivative_basic"]
+  },
+  {
+    "query": "复合函数求导容易犯什么错误？",
+    "subject": "advanced_math",
+    "expectedTopics": ["derivative_basic"],
+    "expectedContentTypes": ["common_mistake"],
+    "mustContain": ["链式法则"],
+    "shouldRetrieve": ["advanced_math.derivative_basic"]
+  },
+  {
+    "query": "导数的几何意义是什么？",
+    "subject": "advanced_math",
+    "expectedTopics": ["derivative_basic"],
+    "expectedContentTypes": ["definition", "application"],
+    "mustContain": ["切线"],
+    "shouldRetrieve": ["advanced_math.derivative_basic"]
+  },
+  {
+    "query": "什么是不定积分？",
+    "subject": "advanced_math",
+    "expectedTopics": [],
+    "expectedContentTypes": ["definition"],
+    "mustContain": [],
+    "shouldRetrieve": []
+  }
+]

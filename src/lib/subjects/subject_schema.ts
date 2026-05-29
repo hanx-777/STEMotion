@@ -3,6 +3,11 @@ export interface SubjectRetrievalConfig {
   score_threshold: number;
   enable_web_search: boolean;
   web_top_k: number;
+  lexical_top_k?: number;
+  embedding_top_k?: number;
+  rerank_top_k?: number;
+  evidence_threshold?: number;
+  enable_embedding?: boolean;
 }
 
 export interface SubjectSkillConfig {

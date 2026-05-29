@@ -11,6 +11,11 @@ const DEFAULT_RETRIEVAL = {
   score_threshold: 0.18,
   enable_web_search: false,
   web_top_k: 3,
+  lexical_top_k: 8,
+  embedding_top_k: 8,
+  rerank_top_k: 4,
+  evidence_threshold: 0.18,
+  enable_embedding: false,
 };
 
 export class SubjectManager {
@@ -99,6 +104,32 @@ export class SubjectManager {
 
   async getKnowledgeBasePath(subjectName: string): Promise<string> {
     return (await this.getSubject(await this.validateSubject(subjectName))).knowledge_base_path;
+  }
+
+  /**
+   * Resolve knowledge base sources directory.
+   * Returns sources/ if it exists (new layout), otherwise knowledge_base/ root (old layout).
+   */
+  async getKnowledgeBaseSourcesPath(subjectName: string): Promise<string> {
+    const basePath = await this.getKnowledgeBasePath(subjectName);
+    const sourcesDir = join(basePath, 'sources');
+    try {
+      const s = await stat(sourcesDir);
+      if (s.isDirectory()) return sourcesDir;
+    } catch { /* fall through */ }
+    return basePath;
+  }
+
+  async getKnowledgeBaseProcessedPath(subjectName: string): Promise<string> {
+    return join(await this.getKnowledgeBasePath(subjectName), 'processed');
+  }
+
+  async getKnowledgeBaseIndexPath(subjectName: string): Promise<string> {
+    return join(await this.getKnowledgeBasePath(subjectName), 'index');
+  }
+
+  async getKnowledgeBaseConfigPath(subjectName: string): Promise<string> {
+    return join(await this.getKnowledgeBasePath(subjectName), 'config');
   }
 
   private async resolveExistingDefaultSubjectName(): Promise<string> {
@@ -206,6 +237,11 @@ function normalizeSkillConfig(raw: Record<string, ParsedYamlValue>): SubjectSkil
       score_threshold: numberOrDefault(retrieval.score_threshold, DEFAULT_RETRIEVAL.score_threshold),
       enable_web_search: booleanOrDefault(retrieval.enable_web_search, DEFAULT_RETRIEVAL.enable_web_search),
       web_top_k: numberOrDefault(retrieval.web_top_k, DEFAULT_RETRIEVAL.web_top_k),
+      lexical_top_k: numberOrDefault(retrieval.lexical_top_k, DEFAULT_RETRIEVAL.lexical_top_k),
+      embedding_top_k: numberOrDefault(retrieval.embedding_top_k, DEFAULT_RETRIEVAL.embedding_top_k),
+      rerank_top_k: numberOrDefault(retrieval.rerank_top_k, DEFAULT_RETRIEVAL.rerank_top_k),
+      evidence_threshold: numberOrDefault(retrieval.evidence_threshold, DEFAULT_RETRIEVAL.evidence_threshold),
+      enable_embedding: booleanOrDefault(retrieval.enable_embedding, DEFAULT_RETRIEVAL.enable_embedding),
     },
     tools: Array.isArray(raw.tools) ? raw.tools : [],
     answer_requirements: Array.isArray(raw.answer_requirements) ? raw.answer_requirements : [],

@@ -1,0 +1,42 @@
+[
+  {
+    "query": "斜抛运动的最大高度怎么算？",
+    "subject": "physics_mechanics",
+    "expectedTopics": ["projectile_motion"],
+    "expectedContentTypes": ["formula", "definition"],
+    "mustContain": ["最大高度", "v0"],
+    "shouldRetrieve": ["physics_mechanics.projectile_motion"]
+  },
+  {
+    "query": "抛体运动的水平射程公式是什么？",
+    "subject": "physics_mechanics",
+    "expectedTopics": ["projectile_motion"],
+    "expectedContentTypes": ["formula"],
+    "mustContain": ["射程", "R"],
+    "shouldRetrieve": ["physics_mechanics.projectile_motion"]
+  },
+  {
+    "query": "斜抛运动有哪些常见错误？",
+    "subject": "physics_mechanics",
+    "expectedTopics": ["projectile_motion"],
+    "expectedContentTypes": ["common_mistake"],
+    "mustContain": ["错误"],
+    "shouldRetrieve": ["physics_mechanics.projectile_motion"]
+  },
+  {
+    "query": "斜抛运动的速度怎么分解？",
+    "subject": "physics_mechanics",
+    "expectedTopics": ["projectile_motion"],
+    "expectedContentTypes": ["definition", "derivation"],
+    "mustContain": ["速度", "分解"],
+    "shouldRetrieve": ["physics_mechanics.projectile_motion"]
+  },
+  {
+    "query": "什么是匀速圆周运动？",
+    "subject": "physics_mechanics",
+    "expectedTopics": [],
+    "expectedContentTypes": ["definition"],
+    "mustContain": [],
+    "shouldRetrieve": []
+  }
+]
