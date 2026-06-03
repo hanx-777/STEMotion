@@ -1,0 +1,27 @@
+{
+  "subject": "computer_science",
+  "built_at": "2026-05-29T09:27:57.727Z",
+  "source_files": 9,
+  "total_chunks": 9,
+  "chunks_by_type": {
+    "formula": 3,
+    "mixed": 4,
+    "code": 2
+  },
+  "avg_token_count": 534,
+  "config": {
+    "chunking": {
+      "targetTokens": 500,
+      "maxTokens": 900,
+      "minTokens": 120
+    },
+    "retrieval": {
+      "topK": 8,
+      "keywordWeight": 0.35,
+      "vectorWeight": 0.45,
+      "subjectWeight": 0.1,
+      "titleBoost": 0.05,
+      "contentTypeBoost": 0.05
+    }
+  }
+}

@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<!-- ==================================================================
+     LONG DOCUMENT TEMPLATE · parchment design system
+     STEMotion 项目重构方案报告
+     ================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>STEMotion 项目重构方案报告</title>
+<meta name="author" content="STEMotion 团队">
+<meta name="description" content="面向高校课程的智能教学资产生成平台重构方案，以大学物理力学为主线，整合学生助学、教师助教、可视化实验、教学资产库、知识库管理与系统设置六大模块。">
+<meta name="keywords" content="STEMotion, 智能教学, RAG, Deep Interaction, 大学物理, 教学资产">
+<meta name="generator" content="Kami">
+<style>
+  /* Regular weight */
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("../fonts/TsangerJinKai02-W04.ttf") format("truetype"),
+       url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W04.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  /* Bold weight - W05 for all bold variants */
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("../fonts/TsangerJinKai02-W05.ttf") format("truetype"),
+       url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W05.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 22mm 22mm 22mm;
+    background: #f5f4ed;
+
+    @top-right {
+      content: string(section-title);
+      font-family: "TsangerJinKai02", "Source Han Serif SC",
+                   "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 8pt;
+      color: #6b6a64;
+    }
+
+    @bottom-center {
+      content: counter(page) "  ·  STEMotion 项目重构方案报告";
+      font-family: "TsangerJinKai02", "Source Han Serif SC",
+                   "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 9pt;
+      color: #6b6a64;
+    }
+  }
+
+  @page:first {
+    @top-right { content: ""; }
+    @bottom-center { content: ""; }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parchment: #f5f4ed;
+    --ivory:     #faf9f5;
+    --near-black:#141413;
+    --dark-warm: #3d3d3a;
+    --olive:     #504e49;
+    --stone:     #6b6a64;
+    --brand:     #1B365D;
+    --border:    #e8e6dc;
+    --border-soft:#e5e3d8;
+    --tag-bg:    #E4ECF5;
+    --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+    --sans: var(--serif);
+
+    --rhythm-module:  14pt;
+    --rhythm-section: 18pt;
+  }
+
+  html, body { background: var(--parchment); }
+
+  @media screen {
+    body { max-width: 210mm; margin: 0 auto; padding: 20mm 22mm 22mm 22mm; }
+  }
+
+  body {
+    color: var(--near-black);
+    font-family: var(--serif);
+    font-size: 10.5pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    widows: 3;
+    orphans: 3;
+  }
+
+  .sans {
+    font-family: var(--sans);
+  }
+
+  /* ========== COVER ========== */
+  .cover {
+    min-height: 240mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40mm 0 0 0;
+    break-after: page;
+  }
+  .cover-eyebrow {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--brand);
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    margin-bottom: 18pt;
+  }
+  .cover-title {
+    font-size: 36pt;
+    font-weight: 500;
+    color: var(--near-black);
+    line-height: 1.15;
+    letter-spacing: 0.3pt;
+    margin-bottom: 16pt;
+  }
+  .cover-sub {
+    font-family: var(--sans);
+    font-size: 14pt;
+    color: var(--olive);
+    line-height: 1.5;
+    max-width: 85%;
+    margin-bottom: 30pt;
+  }
+  .cover-meta {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--stone);
+    line-height: 1.5;
+  }
+  .cover-meta strong {
+    color: var(--dark-warm);
+    font-weight: 500;
+  }
+
+  /* ========== TOC ========== */
+  .toc { break-after: page; }
+  .toc h2 {
+    font-size: 22pt;
+    font-weight: 500;
+    margin-bottom: var(--rhythm-module);
+    border-left: 2.5pt solid var(--brand);
+    border-radius: 1.5pt;
+    padding-left: 8pt;
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6pt 0;
+    border-bottom: 0.3pt dotted var(--border);
+    font-size: 11pt;
+  }
+  .toc-item:last-of-type { border-bottom: none; }
+  .toc-num {
+    color: var(--brand);
+    font-weight: 500;
+    min-width: 30pt;
+  }
+  .toc-title {
+    flex: 1;
+    color: var(--near-black);
+    padding-left: 6pt;
+  }
+  .toc-page {
+    color: var(--stone);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ========== HEADINGS ========== */
+  h1 {
+    font-size: 22pt;
+    font-weight: 500;
+    line-height: 1.2;
+    margin: 0 0 10pt 0;
+    border-left: 2.5pt solid var(--brand);
+    border-radius: 1.5pt;
+    padding-left: 8pt;
+    color: var(--near-black);
+    break-after: avoid;
+  }
+
+  h2 {
+    font-size: 16pt;
+    font-weight: 500;
+    line-height: 1.25;
+    margin: 24pt 0 8pt 0;
+    color: var(--near-black);
+    break-after: avoid;
+    string-set: section-title content();
+  }
+
+  h3 {
+    font-size: 13pt;
+    font-weight: 500;
+    line-height: 1.3;
+    margin: 18pt 0 6pt 0;
+    color: var(--dark-warm);
+    break-after: avoid;
+  }
+
+  .chapter-num {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--brand);
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    margin-bottom: 6pt;
+  }
+
+  /* ========== PARAGRAPHS ========== */
+  p {
+    margin: 0 0 10pt 0;
+    line-height: 1.55;
+    color: var(--near-black);
+    widows: 2;
+    orphans: 2;
+  }
+
+  .lead {
+    font-size: 12pt;
+    line-height: 1.55;
+    color: var(--dark-warm);
+    margin-bottom: var(--rhythm-module);
+  }
+
+  .hl { color: var(--brand); font-weight: 500; }
+  strong { font-weight: 500; }
+
+  /* ========== LISTS ========== */
+  ul, ol {
+    margin: 6pt 0 10pt 0;
+    padding-left: 20pt;
+    line-height: 1.55;
+  }
+  ul li::marker { color: var(--brand); }
+  ol li::marker { color: var(--brand); font-weight: 500; }
+
+  /* ========== QUOTE ========== */
+  blockquote, .quote {
+    border-left: 2pt solid var(--brand);
+    margin: 12pt 0;
+    padding: 4pt 0 4pt 16pt;
+    color: var(--olive);
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+  blockquote .cite, .quote .cite {
+    display: block;
+    font-size: 9pt;
+    color: var(--stone);
+    margin-top: 4pt;
+  }
+
+  /* ========== CODE ========== */
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Consolas,
+                 "TsangerJinKai02", "Source Han Serif SC",
+                 "Noto Serif CJK SC", "Songti SC", monospace;
+    font-size: 9pt;
+    background: var(--ivory);
+    padding: 1pt 4pt;
+    border-radius: 2pt;
+    color: var(--dark-warm);
+  }
+  pre {
+    font-family: "JetBrains Mono", "SF Mono", Consolas,
+                 "TsangerJinKai02", "Source Han Serif SC",
+                 "Noto Serif CJK SC", "Songti SC", monospace;
+    font-size: 9pt;
+    line-height: 1.5;
+    background: var(--ivory);
+    border-radius: 4pt;
+    padding: 10pt 14pt;
+    margin: 10pt 0;
+    white-space: pre-wrap;
+    color: var(--near-black);
+    break-inside: avoid;
+  }
+  pre code { background: transparent; padding: 0; font-size: inherit; }
+
+  /* ========== TABLE ========== */
+  table, .kami-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 12pt 0;
+    break-inside: avoid;
+  }
+  table th, .kami-table th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--dark-warm);
+    padding: 6pt 8pt;
+    border-bottom: 1pt solid var(--border);
+    background: transparent;
+  }
+  table td, .kami-table td {
+    padding: 5pt 8pt;
+    border-bottom: 0.3pt solid var(--border-soft);
+    vertical-align: top;
+  }
+  table.compact th, .kami-table.compact th { padding: 3pt 6pt; font-size: 8pt; }
+  table.compact td, .kami-table.compact td { padding: 2pt 6pt; font-size: 8pt; line-height: 1.4; }
+  table.striped tbody tr:nth-child(even) td, .kami-table.striped tbody tr:nth-child(even) td {
+    background: var(--ivory);
+  }
+
+  /* ========== CALLOUT ========== */
+  .callout {
+    background: var(--ivory);
+    border-left: 2pt solid var(--brand);
+    padding: 10pt 14pt;
+    border-radius: 3pt;
+    margin: 12pt 0;
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+
+  .takeaway {
+    background: var(--ivory);
+    border-radius: 4pt;
+    padding: 10pt 14pt;
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  .takeaway-label {
+    font-family: var(--sans);
+    font-size: 9pt;
+    color: var(--brand);
+    letter-spacing: 0.5pt;
+    text-transform: uppercase;
+    margin-bottom: 4pt;
+  }
+
+  /* ========== TAG ========== */
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--brand);
+    font-family: var(--sans);
+    font-size: 9pt;
+    font-weight: 500;
+    padding: 1pt 6pt;
+    border-radius: 3pt;
+    margin-right: 4pt;
+  }
+
+  /* ========== FIGURE ========== */
+  figure {
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  figure img {
+    max-width: 100%;
+    border-radius: 4pt;
+  }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 9pt;
+    color: var(--stone);
+    margin-top: 6pt;
+    text-align: center;
+  }
+
+  /* ========== EXECUTIVE SUMMARY ========== */
+  .exec-summary {
+    background: var(--ivory);
+    border-left: 1.4pt solid var(--brand);
+    border-radius: 6pt;
+    padding: 16pt 20pt;
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  .exec-summary h2 {
+    margin-top: 0;
+    font-size: 13pt;
+  }
+
+  /* ========== CHAPTER BREAK ========== */
+  .chapter { break-before: page; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════ COVER ═════════════ -->
+<section class="cover">
+  <div>
+    <div class="cover-eyebrow">项目重构方案</div>
+    <div class="cover-title">STEMotion<br>智能教学资产生成平台</div>
+    <div class="cover-sub">面向高校大学物理力学课程的可追溯智能助学与助教系统，通过 RAG 可信知识、Agent 质量控制、Deep Interaction 交互实验生成和教学资产库，把学生问题与教师需求转化为可复用教学资产。</div>
+  </div>
+  <div class="cover-meta">
+    <strong>STEMotion 团队</strong><br>
+    V1.0  ·  2026.06<br>
+    XH202620 参赛作品
+  </div>
+</section>
+
+<!-- ═════════════ 目录 ═════════════ -->
+<section class="toc">
+  <h2>目录</h2>
+  <div class="toc-item">
+    <span class="toc-num">01</span>
+    <span class="toc-title">执行摘要</span>
+    <span class="toc-page">03</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">02</span>
+    <span class="toc-title">背景与问题定义</span>
+    <span class="toc-page">04</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">03</span>
+    <span class="toc-title">产品层重构：六大模块</span>
+    <span class="toc-page">05</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">04</span>
+    <span class="toc-title">Agent 架构：五条流水线</span>
+    <span class="toc-page">07</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">05</span>
+    <span class="toc-title">技术桥接与路由设计</span>
+    <span class="toc-page">08</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">06</span>
+    <span class="toc-title">比赛对齐与交付规划</span>
+    <span class="toc-page">09</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">07</span>
+    <span class="toc-title">工程约束与测试验证</span>
+    <span class="toc-page">10</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">08</span>
+    <span class="toc-title">附录</span>
+    <span class="toc-page">11</span>
+  </div>
+</section>
+
+<!-- ═════════════ Chapter 01：执行摘要 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">01 · Executive Summary</div>
+  <h1>执行摘要</h1>
+
+  <p class="lead">
+    STEMotion 当前已具备 RAG 学生助学、教师助教、Deep Interaction 可视化生成、本地交互库、模型 Profile 设置、学科 Skill、本地知识库、Hybrid Retriever、多 Agent 质量检查和可视化管线等<span class="hl">十项基础能力</span>。但现有架构呈现「多个功能页面拼接」的状态，缺乏面向真实教学场景的课程闭环感。
+  </p>
+
+  <h2>核心 Takeaways</h2>
+  <ul>
+    <li>重构目标：从「功能堆叠」升级为「课程闭环」，建立 <span class="hl">知识库 → RAG → Agent 质检 → 结构化教学输出 → Deep Interaction → Artifact → 教学资产库</span> 的完整技术链</li>
+    <li>产品层拆分为 6 个一级模块：学生学习、教师教学、可视化实验、教学资产、知识库管理、系统设置</li>
+    <li>Agent 体系整理为 5 条流水线，覆盖知识构建、学生 RAG、教师 RAG、实验生成、交付评估</li>
+    <li>新增知识库健康度管理页面，满足比赛对「专业知识库」和「内容可追溯」的核心要求</li>
+    <li>建立 RAG 到 Lab 的桥接机制，学生学习或教师备课结果可一键跳转生成交互实验</li>
+  </ul>
+
+  <div class="takeaway">
+    <div class="takeaway-label">本文档回答的问题</div>
+    如何将 STEMotion 从多页面功能拼接重构为面向高校课程的智能教学资产生成平台？重构后的模块划分、Agent 架构和技术桥接如何落地？比赛交付材料如何对齐？
+  </div>
+</section>
+
+<!-- ═════════════ Chapter 02：背景 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">02 · Background</div>
+  <h1>背景与问题定义</h1>
+
+  <p class="lead">
+    XH202620 比赛要求关注真实教学场景、专业知识库、RAG 可追溯、典型案例、用户反馈和可推广性。STEMotion 需要从技术原型升级为可交付的教学产品。
+  </p>
+
+  <h2>当前现状</h2>
+  <p>STEMotion 已完成的核心能力包括：RAG 学生助学与教师助教模块、Deep Interaction 可视化生成管线、本地交互库与模型 Profile 设置、学科 Skill 与本地知识库、Hybrid Retriever 与多 Agent 质量检查。这些能力覆盖了从知识检索到交互实验生成的完整技术栈。</p>
+
+  <h2>核心问题</h2>
+  <p>现有架构的主要问题在于各功能模块之间缺乏统一的课程工作流叙事。学生助学、教师助教、可视化实验和交互库各自独立运行，没有形成「从知识到资产」的闭环。对于比赛评审而言，这表现为功能丰富但场景割裂。</p>
+
+  <div class="callout">
+    重构方向不是「把现有页面再修好看一点」，而是把项目整体升级为：面向高校课程的智能教学资产生成平台。减少「页面堆叠感」，强化「课程闭环感」。
+  </div>
+
+  <h2>衡量标准</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>当前水平</th>
+        <th>目标水平</th>
+        <th>差距</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>模块命名</td>
+        <td>Student / Teacher / Visualization / Interactions</td>
+        <td>Learn / Teach / Lab / Assets / Knowledge / Settings</td>
+        <td>语义不匹配教学场景</td>
+      </tr>
+      <tr>
+        <td>知识库可见性</td>
+        <td>仅在设置页显示文件数和 chunk 数</td>
+        <td>独立知识库健康度页面，含覆盖模块、缺失分析、来源可信度</td>
+        <td>缺少知识库质量管理入口</td>
+      </tr>
+      <tr>
+        <td>RAG 到 Lab 桥接</td>
+        <td>无直接跳转</td>
+        <td>学习或备课回答完成后可一键生成交互实验 prompt</td>
+        <td>两个核心能力未打通</td>
+      </tr>
+      <tr>
+        <td>Agent 分类</td>
+        <td>分散在代码中，无统一文档</td>
+        <td>5 条流水线，文档化已实现 / 部分实现 / 规划中状态</td>
+        <td>架构文档缺失</td>
+      </tr>
+      <tr>
+        <td>比赛材料</td>
+        <td>无结构化提交目录</td>
+        <td>完整 competition_submission 目录与 readiness checklist</td>
+        <td>交付物未对齐</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Chapter 03：产品层重构 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">03 · Product Architecture</div>
+  <h1>产品层重构：六大模块</h1>
+
+  <p class="lead">
+    将项目重构成 6 个一级模块，左侧导航对应「学生学习 → 教师教学 → 可视化实验 → 教学资产 → 知识库 → 设置 → 关于」，形成从学习到资产沉淀的完整课程工作流。
+  </p>
+
+  <h2>模块总览</h2>
+  <pre><code>STEMotion
+├── 学生学习 Learn      面向学生，底层用 RAG
+├── 教师教学 Teach      面向教师，底层用 RAG
+├── 可视化实验 Lab      继承 Deep Interaction
+├── 教学资产 Assets     原交互库升级
+├── 知识库 Knowledge    新增一级模块
+└── 系统设置 Settings   模型 Profile + 系统健康</code></pre>
+
+  <h2>1. 学生学习 Learn</h2>
+  <p>面向学生，底层复用 RAG 管线。核心任务包括知识讲解、分步解题、错因诊断、学习报告、错题本和推荐练习。输出包含结构化回答、公式推导、单位检查、引用来源、学习建议和可视化提示。</p>
+  <p>默认学科为 <span class="hl">physics_mechanics</span>，默认问题示例为大学物理力学中的斜抛运动建模。新增轻量功能：LearningReportPanel（学习报告面板）、SaveToMistakeBookButton（保存错题本按钮）、GenerateLabFromAnswerButton（从回答生成交互实验按钮）。</p>
+
+  <h2>2. 教师教学 Teach</h2>
+  <p>面向教师，底层同样复用 RAG。核心任务包括课堂备课、演示设计、练习生成、Rubric 评分标准、教学材料导出和一键生成可视化实验。输出包含教学目标、课堂导入、板书设计、互动问题、演示参数、课后练习、评分标准和引用来源。</p>
+  <p>新增功能：ExportTeachingMaterialButton（支持 Markdown、剪贴板、PPT 大纲文本、练习题单等导出格式）、RubricGeneratorPanel、GenerateLabPromptFromTeachingPlan。</p>
+
+  <h2>3. 可视化实验 Lab</h2>
+  <p>继承 Deep Interaction 管线，而非简单 SVG 页面。核心任务包括 Guided Planning、LearningBlueprint、Subject Schema 校验、Verified Template 匹配、HTML/SVG/Canvas artifact 生成、多 Agent 评审、Repair 修复、artifact_ready 状态和保存到教学资产库。</p>
+
+  <p>典型案例库：</p>
+  <table>
+    <thead>
+      <tr>
+        <th>编号</th>
+        <th>实验名称</th>
+        <th>核心交互</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>非零高度斜抛运动交互实验</td>
+        <td>调节 h、v₀、θ、g，观察轨迹与落地参数</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>匀速圆周运动方向与向心加速度演示</td>
+        <td>调节角速度与半径，观察速度矢量变化</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>机械能守恒滑块实验</td>
+        <td>调节斜面角度与摩擦系数，观察能量转化</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>动量守恒碰撞实验</td>
+        <td>调节质量与初速度，观察弹性 / 非弹性碰撞</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>简谐振动实验</td>
+        <td>调节弹簧常数与振幅，观察位移与速度曲线</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. 教学资产 Assets</h2>
+  <p>替代原 <code>/interactions</code> 主导航名称。「交互库」改名为「教学资产」，因为前者听起来像开发者功能，而后者更符合比赛叙事和教育场景。</p>
+  <p>资产类型包括：RAG 学习报告、错题记录、教师备课方案、练习题单、交互实验 artifact、可视化演示。新增字段：subject、module、assetType、tags、source、createdAt、updatedAt、version、qualityLevel。如果已有 artifact store，尽量兼容旧数据，新增字段可选。</p>
+
+  <h2>5. 知识库 Knowledge</h2>
+  <p>新增的一级模块。不再只在设置页显示「17 文件 / 20 片段」，而是做成可见的知识库管理与健康度页面。这非常符合比赛要求，因为赛题很强调「专业知识库」和「内容可追溯」。</p>
+  <p>功能包括：学科知识库状态展示、文件数与 chunk 数、覆盖模块与缺失模块、最近更新时间、来源可信度、重新 ingest 指令展示、检索测试入口、知识库健康度评分。展示学科包括 physics_mechanics、advanced_math、chemistry、computer_science。</p>
+
+  <h2>6. 系统设置 Settings</h2>
+  <p>保留模型 Profile 配置功能，增加系统健康状态展示：当前 active model 是否存在、API Key 脱敏显示、RAG 索引是否存在、physics_mechanics 是否已索引、Deep Interaction 是否可用、localStorage 是否可用、最近一次构建或检查状态。</p>
+</section>
+
+<!-- ═════════════ Chapter 04：Agent 架构 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">04 · Agent Architecture</div>
+  <h1>Agent 架构：五条流水线</h1>
+
+  <p class="lead">
+    将当前 Agent 体系整理为 5 条流水线，覆盖从知识库构建到比赛交付的完整链路。代码中暂时没有对应 Agent 的，先在文档中说明为「规划中」，不伪造实现。
+  </p>
+
+  <h2>1. Knowledge Build Agents</h2>
+  <p>用于构建知识库。包括 SourceScoutAgent（公开资料检索）、SourceComplianceAgent（版权与来源检查）、ContentCleanerAgent（内容清洗）、KnowledgeStructuringAgent（知识库 Markdown 生成）、ChunkIndexAgent（chunks / keyword / vector 索引）、KnowledgeHealthAgent（知识库健康度分析）。</p>
+
+  <h2>2. Learning RAG Agents</h2>
+  <p>用于学生学习。包括 QueryPlannerAgent、HybridRetrieverAgent、EvidenceAssemblerAgent、AnswerGeneratorAgent、FormulaUnitCheckAgent（公式与单位检查）、MisconceptionDiagnosisAgent（错因诊断）、LearningReportAgent（学习报告）、JudgeAgent、RevisionAgent。</p>
+
+  <h2>3. Teaching RAG Agents</h2>
+  <p>用于教师教学。包括 TeachingPlannerAgent、LessonDesignAgent、ExerciseGeneratorAgent（练习题单生成）、RubricGeneratorAgent（评分 Rubric 生成）、TeachingExportAgent（教学材料导出）、EvidenceGroundingAgent。</p>
+
+  <h2>4. Lab Generation Agents</h2>
+  <p>继承 Deep Interaction。包括 GuidedPlanningAgent、LearningDesignAgent、SubjectSchemaValidator、TemplateMatcher、WidgetHtmlAgent、TeacherActionAgent、SafetyEvaluator、RuntimeEvaluator、PedagogyEvaluator、UxEvaluator、JudgeAgent、RepairAgent、QualityReportAgent。重点增强：大学物理力学模板库、RAG → Lab Prompt 桥接、artifact 版本说明。</p>
+
+  <h2>5. Delivery &amp; Evaluation Agents</h2>
+  <p>用于比赛交付。包括 EvaluationCaseAgent（维护测试案例）、RubricMappingAgent（映射比赛评分维度）、DemoScriptAgent（生成演示脚本）、UserFeedbackAgent（汇总真实用户反馈）、SubmissionPackAgent（检查提交材料完整性）。</p>
+
+  <div class="callout">
+    Agent 实现状态说明：代码中已实现的 Agent 直接标注「已实现」；部分功能可用的标注「部分实现」；尚未编码的标注「规划中，文档占位」。不伪造任何实现状态。
+  </div>
+</section>
+
+<!-- ═════════════ Chapter 05：技术桥接 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">05 · Technical Bridge</div>
+  <h1>技术桥接与路由设计</h1>
+
+  <p class="lead">
+    路由重构遵循「不删除旧代码、不破坏已有 API」的工程约束，通过 redirect 或 wrapper 实现新旧路由兼容。RAG 到 Lab 的桥接是本次重构的核心技术亮点。
+  </p>
+
+  <h2>路由映射</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>旧路由</th>
+        <th>新路由</th>
+        <th>兼容方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/student</code></td>
+        <td><code>/learn</code></td>
+        <td>redirect</td>
+      </tr>
+      <tr>
+        <td><code>/teacher</code></td>
+        <td><code>/teach</code></td>
+        <td>redirect</td>
+      </tr>
+      <tr>
+        <td><code>/visualization</code></td>
+        <td><code>/lab</code></td>
+        <td>redirect</td>
+      </tr>
+      <tr>
+        <td><code>/interactions</code></td>
+        <td><code>/assets</code></td>
+        <td>redirect</td>
+      </tr>
+      <tr>
+        <td><code>/rag</code></td>
+        <td><code>/learn</code></td>
+        <td>redirect</td>
+      </tr>
+      <tr>
+        <td><code>/deep-interaction</code></td>
+        <td><code>/lab</code></td>
+        <td>保留旧入口，作为底层能力</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>RAG 到 Lab 桥接</h2>
+  <p>在 <code>/learn</code> 和 <code>/teach</code> 的回答完成后增加「生成交互实验」按钮。点击后：根据当前回答、主题、taskType 生成 lab prompt；跳转到 <code>/lab</code>；将 prompt 填入 Lab 输入框；不自动开始生成，用户仍需确认 Guided Plan。</p>
+
+  <p>示例 prompt：</p>
+  <blockquote>
+    基于刚才的非零初始高度斜抛运动模型，生成一个大学物理交互实验。学生可以调节 h、v₀、θ、g，观察轨迹、落地时间、最大高度、水平射程和速度分量随时间的变化。
+  </blockquote>
+
+  <h2>导航结构</h2>
+  <pre><code>左侧导航
+├── 学生学习      /learn
+├── 教师教学      /teach
+├── 可视化实验    /lab
+├── 教学资产      /assets
+├── 知识库        /knowledge
+├── 设置          /settings
+└── 关于          /about</code></pre>
+
+  <h2>路由目录结构</h2>
+  <pre><code>src/app/
+├── learn/              学生学习
+├── teach/              教师教学
+├── lab/                可视化实验
+├── assets/             教学资产库
+├── knowledge/          知识库管理
+├── settings/           设置
+├── about/              关于
+└── api/v1/             API 层</code></pre>
+</section>
+
+<!-- ═════════════ Chapter 06：比赛对齐 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">06 · Competition Alignment</div>
+  <h1>比赛对齐与交付规划</h1>
+
+  <p class="lead">
+    确保 competition_submission 目录结构完整，新增 submission_readiness_checklist 检查项，不伪造任何真实材料。
+  </p>
+
+  <h2>提交目录结构</h2>
+  <pre><code>competition_submission/
+├── 01_参赛信息/
+├── 02_伦理与安全合规性声明/
+├── 03_作品Demo/
+├── 04_作品方案/
+├── 05_作品代码/
+├── 06_效果验证报告/
+└── 07_其他材料/</code></pre>
+
+  <h2>提交就绪检查清单</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>检查项</th>
+        <th>状态</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Demo 地址</td>
+        <td><span class="tag">待确认</span></td>
+        <td>需部署可访问的在线 Demo</td>
+      </tr>
+      <tr>
+        <td>3 分钟演示视频</td>
+        <td><span class="tag">待录制</span></td>
+        <td>覆盖学生学习、教师教学、Lab 生成三个核心场景</td>
+      </tr>
+      <tr>
+        <td>作品方案 PPT</td>
+        <td><span class="tag">待制作</span></td>
+        <td>基于本文档内容制作</td>
+      </tr>
+      <tr>
+        <td>3 个典型案例</td>
+        <td><span class="tag">待整理</span></td>
+        <td>斜抛运动、圆周运动、机械能守恒</td>
+      </tr>
+      <tr>
+        <td>真实用户反馈</td>
+        <td><span class="tag">待收集</span></td>
+        <td>不伪造，需真实试用记录</td>
+      </tr>
+      <tr>
+        <td>知识库来源</td>
+        <td><span class="tag">待整理</span></td>
+        <td>physics_mechanics 学科知识库来源清单</td>
+      </tr>
+      <tr>
+        <td>伦理声明</td>
+        <td><span class="tag">待撰写</span></td>
+        <td>AI 辅助教学的伦理与安全合规性</td>
+      </tr>
+      <tr>
+        <td>代码复现</td>
+        <td><span class="tag">待验证</span></td>
+        <td>确保 npm run build 通过</td>
+      </tr>
+      <tr>
+        <td>测试报告</td>
+        <td><span class="tag">待运行</span></td>
+        <td>lint / typecheck / build / test 全通过</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>文档更新清单</h2>
+  <p>本次重构需更新或新增以下文档：</p>
+  <ul>
+    <li><code>docs/system_architecture.md</code> — 系统架构总览</li>
+    <li><code>docs/feature_architecture.md</code> — 功能架构说明</li>
+    <li><code>docs/agent_architecture.md</code> — Agent 架构分类与状态</li>
+    <li><code>docs/knowledge_health.md</code> — 知识库健康度说明</li>
+    <li><code>docs/rag_to_lab_bridge.md</code> — RAG 到 Lab 桥接设计</li>
+    <li><code>docs/xh202620_mapping.md</code> — 比赛评分维度映射</li>
+    <li><code>docs/evaluation/test_cases.md</code> — 测试案例</li>
+    <li><code>docs/submission_readiness_checklist.md</code> — 提交就绪检查</li>
+    <li><code>README.md</code> — 项目首页更新</li>
+  </ul>
+</section>
+
+<!-- ═════════════ Chapter 07：工程约束 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">07 · Engineering Constraints</div>
+  <h1>工程约束与测试验证</h1>
+
+  <p class="lead">
+    本次重构允许大幅调整前端路由、页面命名、功能分区、Agent 组织方式和文档结构，但必须遵守以下工程约束。
+  </p>
+
+  <h2>工程红线</h2>
+  <ol>
+    <li>不删除核心旧代码</li>
+    <li>不破坏 RAG API</li>
+    <li>不破坏 Deep Interaction 管线</li>
+    <li>不破坏模型设置</li>
+    <li>不删除已有知识库</li>
+    <li>不伪造用户反馈</li>
+    <li>不伪造测试结果</li>
+    <li>不提交真实 API Key</li>
+    <li>不新增数据库服务</li>
+    <li>不把 mock web search 宣传为真实联网</li>
+  </ol>
+
+  <h2>测试验证计划</h2>
+  <p>完成后运行以下命令验证构建和代码质量：</p>
+  <pre><code>npm run lint
+npm run typecheck
+npm run build
+npm run check
+npm test</code></pre>
+
+  <p>如果支持 RAG 命令，运行：</p>
+  <pre><code>npm run rag:ingest -- --subject physics_mechanics
+npm run rag:query -- --subject physics_mechanics \
+  --question "非零初始高度斜抛运动如何求落地时间和射程？"</code></pre>
+
+  <h2>人工检查清单</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>编号</th>
+        <th>检查项</th>
+        <th>状态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>/learn 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>2</td><td>/teach 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>3</td><td>/lab 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>4</td><td>/assets 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>5</td><td>/knowledge 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>6</td><td>/settings 可打开</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>7</td><td>旧路由 /student /teacher /visualization /interactions 兼容</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>8</td><td>学生学习可发起 RAG</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>9</td><td>教师教学可发起 RAG</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>10</td><td>Lab 可进入 Deep Interaction 流程</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>11</td><td>RAG 回答可跳转生成 Lab prompt</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>12</td><td>教学资产库不丢旧数据</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>13</td><td>知识库健康度页面显示正确</td><td><span class="tag">待验证</span></td></tr>
+      <tr><td>14</td><td>移动端无横向滚动</td><td><span class="tag">待验证</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Chapter 08：附录 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">08 · Appendix</div>
+  <h1>附录</h1>
+
+  <h2>A. 核心技术链</h2>
+  <div class="callout">
+    知识库 → RAG → Agent 质检 → 结构化教学输出 → Deep Interaction → Artifact → 教学资产库
+  </div>
+  <p>这条链路是 STEMotion 的技术主线。知识库提供可信知识来源，RAG 负责检索与组装，Agent 质检确保输出质量，结构化教学输出面向学生和教师两个角色，Deep Interaction 将抽象知识转化为可交互的实验 artifact，最终沉淀到教学资产库供复用。</p>
+
+  <h2>B. 知识库健康度指标</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>指标</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>fileCount</td><td>知识库文件总数</td></tr>
+      <tr><td>chunkCount</td><td>切片总数</td></tr>
+      <tr><td>indexed</td><td>是否已完成索引</td></tr>
+      <tr><td>moduleCoverage</td><td>覆盖模块列表</td></tr>
+      <tr><td>sourceCoverage</td><td>来源可信度</td></tr>
+      <tr><td>lastUpdated</td><td>最近更新时间</td></tr>
+      <tr><td>validationStatus</td><td>校验状态</td></tr>
+    </tbody>
+  </table>
+
+  <h2>C. 教学资产数据结构</h2>
+  <pre><code>{
+  "id": "asset-uuid",
+  "subject": "physics_mechanics",
+  "module": "kinematics",
+  "assetType": "interactive_experiment",
+  "title": "非零高度斜抛运动交互实验",
+  "tags": ["斜抛运动", "大学物理", "力学"],
+  "source": "deep-interaction",
+  "createdAt": "2026-06-03T10:00:00Z",
+  "updatedAt": "2026-06-03T10:00:00Z",
+  "version": 1,
+  "qualityLevel": "verified",
+  "content": { ... }
+}</code></pre>
+
+  <h2>D. 术语表</h2>
+  <p><strong>RAG</strong>：Retrieval-Augmented Generation，检索增强生成，通过检索外部知识库来增强大语言模型的输出质量。</p>
+  <p><strong>Deep Interaction</strong>：STEMotion 的交互实验生成管线，通过 Guided Planning、多 Agent 评审和 Repair 机制生成高质量的 HTML/SVG/Canvas 交互 artifact。</p>
+  <p><strong>LearningBlueprint</strong>：学习蓝图，描述交互实验的教学目标、交互方式和评估标准的结构化文档。</p>
+  <p><strong>Guided Planning</strong>：引导式规划，Deep Interaction 管线的第一步，将用户 prompt 转化为结构化的实验设计方案。</p>
+  <p><strong>Artifact</strong>：教学资产的载体，可以是交互实验 HTML、学习报告、备课方案等可复用的教学内容。</p>
+
+  <h2>E. 参考资料</h2>
+  <ul>
+    <li>STEMotion 现有代码库与 API 文档</li>
+    <li>XH202620 比赛要求与评分标准</li>
+    <li>大学物理力学课程教学大纲</li>
+    <li>RAG 与 Agent 架构设计文献</li>
+  </ul>
+
+  <h2>F. 致谢</h2>
+  <p>感谢所有参与 STEMotion 项目开发和测试的团队成员，以及为项目提供教学场景反馈的高校教师和学生。</p>
+</section>
+
+</body>
+</html>

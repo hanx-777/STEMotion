@@ -1,0 +1,34 @@
+[
+  {
+    "query": "什么是化学平衡？",
+    "subject": "chemistry",
+    "expectedTopics": ["chemical_equilibrium"],
+    "expectedContentTypes": ["definition"],
+    "mustContain": ["化学平衡"],
+    "shouldRetrieve": ["chemistry.chemical_equilibrium"]
+  },
+  {
+    "query": "平衡常数K的表达式怎么写？",
+    "subject": "chemistry",
+    "expectedTopics": ["chemical_equilibrium"],
+    "expectedContentTypes": ["formula"],
+    "mustContain": ["K"],
+    "shouldRetrieve": ["chemistry.chemical_equilibrium"]
+  },
+  {
+    "query": "勒夏特列原理是什么？",
+    "subject": "chemistry",
+    "expectedTopics": ["chemical_equilibrium"],
+    "expectedContentTypes": ["definition"],
+    "mustContain": ["勒夏特列"],
+    "shouldRetrieve": ["chemistry.chemical_equilibrium"]
+  },
+  {
+    "query": "催化剂影响平衡常数吗？",
+    "subject": "chemistry",
+    "expectedTopics": ["chemical_equilibrium"],
+    "expectedContentTypes": ["common_mistake"],
+    "mustContain": ["催化剂"],
+    "shouldRetrieve": ["chemistry.chemical_equilibrium"]
+  }
+]

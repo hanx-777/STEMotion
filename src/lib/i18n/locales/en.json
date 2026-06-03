@@ -1,0 +1,37 @@
+{
+  "common": {
+    "laboratory": "Laboratory",
+    "library": "Library",
+    "settings": "Settings",
+    "about": "About",
+    "collapse_sidebar": "Collapse Sidebar",
+    "ready_to_assist": "Ready to assist",
+    "ai_tutor": "AI Tutor",
+    "ask_tutor": "Ask your tutor...",
+    "powered_by": "Powered by STEMotion AI Engine",
+    "step": "Step",
+    "of": "of",
+    "lesson_progress": "Lesson Progress",
+    "reset_experiment": "Reset Experiment",
+    "speed": "Speed",
+    "live_telemetry": "Live Telemetry",
+    "time": "Time",
+    "velocity": "Velocity",
+    "acceleration": "Acceleration",
+    "parameters": "Parameters",
+    "formulas": "Reference Formulas",
+    "ready_for_exploration": "Ready for Exploration?",
+    "exploration_desc": "Select an experiment from the library or ask the AI Tutor to generate a custom lab environment.",
+    "load_template": "Load Template",
+    "coming_soon": "Coming soon",
+    "active_lab": "Current Experiment: Physics Lab",
+    "library_overview": "Library Overview"
+  },
+  "physics": {
+    "cart_inclined_plane": "Cart on an Inclined Plane",
+    "mass": "Mass",
+    "angle": "Angle",
+    "friction": "Friction Coef",
+    "gravity": "Gravity"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "stemotion-mvp",
+  "version": "1.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "test": "tsx --test tests/*.ts",
+    "rag:ingest": "tsx scripts/ingest_knowledge.ts",
+    "rag:build": "tsx scripts/build_knowledge.ts",
+    "rag:eval": "tsx scripts/eval_rag.ts",
+    "rag:migrate": "tsx scripts/migrate_knowledge_base.ts",
+    "rag:query": "tsx scripts/test_rag_query.ts",
+    "spike:export-pptx": "tsx scripts/spike-export-pptx.ts"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "gsap": "^3.15.0",
+    "i18next": "^26.0.10",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "jsonrepair": "^3.14.0",
+    "katex": "^0.17.0",
+    "lucide-react": "^1.14.0",
+    "minisearch": "^7.2.0",
+    "next": "16.2.6",
+    "openai": "^6.37.0",
+    "playwright": "^1.60.0",
+    "pptxgenjs": "^4.0.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-i18next": "^17.0.7",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

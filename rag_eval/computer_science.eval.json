@@ -1,0 +1,34 @@
+[
+  {
+    "query": "栈和队列有什么区别？",
+    "subject": "computer_science",
+    "expectedTopics": ["stack_queue"],
+    "expectedContentTypes": ["definition", "summary"],
+    "mustContain": ["LIFO", "FIFO"],
+    "shouldRetrieve": ["computer_science.stack_queue"]
+  },
+  {
+    "query": "C++ STL中怎么用栈？",
+    "subject": "computer_science",
+    "expectedTopics": ["stack_queue"],
+    "expectedContentTypes": ["code"],
+    "mustContain": ["std::stack"],
+    "shouldRetrieve": ["computer_science.stack_queue"]
+  },
+  {
+    "query": "栈的常见应用有哪些？",
+    "subject": "computer_science",
+    "expectedTopics": ["stack_queue"],
+    "expectedContentTypes": ["application"],
+    "mustContain": ["函数调用"],
+    "shouldRetrieve": ["computer_science.stack_queue"]
+  },
+  {
+    "query": "使用栈和队列容易犯什么错误？",
+    "subject": "computer_science",
+    "expectedTopics": ["stack_queue"],
+    "expectedContentTypes": ["common_mistake"],
+    "mustContain": ["空"],
+    "shouldRetrieve": ["computer_science.stack_queue"]
+  }
+]

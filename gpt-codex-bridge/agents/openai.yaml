@@ -1,0 +1,4 @@
+interface:
+  display_name: "GPT Codex Bridge"
+  short_description: "Plan Codex handoff packets safely"
+  default_prompt: "Use $gpt-codex-bridge to create a TASK-PACKET for Codex and review the RESULT-PACKET."

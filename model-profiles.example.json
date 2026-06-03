@@ -1,0 +1,21 @@
+{
+  "activeProfile": "openai-main",
+  "profiles": {
+    "openai-main": {
+      "label": "OpenAI Main",
+      "provider": "openai",
+      "baseURL": "https://api.openai.com/v1",
+      "apiKey": "YOUR_OPENAI_API_KEY",
+      "model": "gpt-4.1",
+      "timeout": 300000
+    },
+    "claude-main": {
+      "label": "Claude Main",
+      "provider": "anthropic",
+      "baseURL": "https://api.anthropic.com",
+      "apiKey": "YOUR_CLAUDE_API_KEY",
+      "model": "claude-opus-4-1",
+      "timeout": 300000
+    }
+  }
+}

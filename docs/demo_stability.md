@@ -1,0 +1,35 @@
+# Demo 稳定性设计
+
+本文说明 STEMotion Physics Skill 面向 XH202620 现场展示时的稳定性设计。
+
+## 1. 典型案例不自动请求
+
+`/student`、`/teacher` 和兼容入口 `/rag` 中的典型案例按钮只会自动填入任务类型和问题，不会自动发起请求。这样可以避免比赛现场误触、模型额度消耗或网络波动导致页面不可控。
+
+## 2. Loading 三阶段
+
+页面 loading 状态分为：
+
+1. 检索知识库中；
+2. 生成答案中；
+3. 整理引用中。
+
+该状态用于帮助评委理解系统不是普通聊天框，而是在执行“检索 -> 生成 -> 引用整理”的教学 RAG 流程。
+
+## 3. demoFallback 边界
+
+项目已实现 demo fallback，真实实现位置在 `src/features/rag/ui/SubjectRagConsole.tsx`；`src/components/rag/SubjectRagConsole.tsx` 仅作为兼容 re-export 保留。典型案例数据集中在 `src/lib/rag/demoCases.ts`。
+
+当 `/api/v1/rag/ask` 或兼容旧接口 `/api/rag/ask` 请求失败，且当前问题来自典型案例时，页面可以展示预置演示结果，并明确标注“演示样例结果”。
+
+## 4. demoFallback 不用于普通用户问题
+
+普通用户手动输入的问题不会使用 demo fallback。若请求失败，页面应显示明确错误信息，提示检查模型配置、网络状态或 API Key。
+
+## 5. 网络检索失败
+
+网络检索缺少 API Key、服务不可用或请求失败时，应降级为本地 RAG 或提示网络补充不可用。网络检索资料只能标注为“网络补充资料”，不得伪装成本地课程资料。
+
+## 6. 模型配置失败
+
+如果模型 API Key 缺失、Base URL 错误或模型调用失败，`/api/v1/rag/ask` 应返回清晰错误提示，前端展示错误，不应导致页面崩溃，也不应把检索片段拼接成假回答。旧接口 `/api/rag/ask` 只作为兼容 adapter 保留。

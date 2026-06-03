@@ -1,0 +1,37 @@
+{
+  "common": {
+    "laboratory": "实验室",
+    "library": "交互库",
+    "settings": "设置",
+    "about": "关于",
+    "collapse_sidebar": "收起侧边栏",
+    "ready_to_assist": "准备就绪",
+    "ai_tutor": "AI 导师",
+    "ask_tutor": "生成一个不同质量小车在斜面下滑的实验",
+    "powered_by": "由 STEMotion JSON Engine 驱动",
+    "step": "步骤",
+    "of": "共",
+    "lesson_progress": "实验进度",
+    "reset_experiment": "重置实验",
+    "speed": "倍速",
+    "live_telemetry": "实时遥测",
+    "time": "时间",
+    "velocity": "速度",
+    "acceleration": "加速度",
+    "parameters": "实验参数",
+    "formulas": "参考公式",
+    "ready_for_exploration": "准备开始探索了吗？",
+    "exploration_desc": "从交互库选择模板，或让 AI 导师生成一个结构化实验。",
+    "load_template": "加载模板",
+    "coming_soon": "即将推出",
+    "active_lab": "当前实验：物理实验室",
+    "library_overview": "交互库概览"
+  },
+  "physics": {
+    "cart_inclined_plane": "斜面小车实验",
+    "mass": "质量",
+    "angle": "斜面角度",
+    "friction": "摩擦系数",
+    "gravity": "重力加速度"
+  }
+}
