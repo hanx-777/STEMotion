@@ -62,4 +62,8 @@ test('planning prompt forbids changing the problem or inventing parameters', () 
   assert.match(prompt, /unknown/);
   assert.match(prompt, /problemRestatement/);
   assert.match(prompt, /animationRequirements/);
+  assert.match(prompt, /design intent|设计意图/i);
+  assert.match(prompt, /STEMotion visual vocabulary/i);
+  assert.match(prompt, /anti-filler/i);
+  assert.match(prompt, /first-screen stage-first/i);
 });

@@ -1,4 +1,5 @@
 import { generateWithConfiguredModel, LlmTruncationError } from '@/lib/generation/llmClient';
+import { artifactDesignContractPrompt } from '@/lib/generation/artifactDesignContract';
 import {
   assertSafeInteractiveHtml,
   diagnoseHtmlCompleteness,
@@ -40,6 +41,7 @@ import {
   formatRagWidgetContractForPrompt,
   type RagWidgetContractDiagnostic,
 } from './widgetContract';
+import { buildRagVisualizationDesignContext } from './designContext';
 import type {
   InteractiveHtmlSpec,
   RagVisualizationBrief,
@@ -73,6 +75,28 @@ export interface RagVisualizationAuditInput {
 export interface RagWidgetHtmlGenerationInput extends RagVisualizationAuditInput {
   plan: RagVisualizationGenerationPlan;
 }
+
+export const RAG_WIDGET_HTML_SYSTEM_PROMPT = `You are STEMotion RAG WidgetHtmlAgent.
+
+Task: generate one complete self-contained HTML document for a problem-specific RAG visualization.
+
+Return HTML only. No markdown or prose.
+
+Rules:
+- Use pure inline HTML/CSS/JavaScript.
+- No remote resources, network requests, storage APIs, eval, dynamic import, or nested iframes.
+- The widget must be problem-specific, not a generic explanation page.
+- Preserve the original question, variables, known values, and requested result.
+${buildRagVisualizationDesignContext({
+  medium: 'problem-specific RAG visualization widget',
+  interactionIntent: 'turn the problem plan into a compact, reviewable, interactive learning widget',
+})}
+${artifactDesignContractPrompt({
+  medium: 'problem-specific RAG visualization widget',
+  mainStage: 'main visualization/work area',
+  supportPanel: 'right explanation/sidebar area',
+  supportingContent: 'variables, learning goals, plans, citations, formulas, and long explanations',
+})}`;
 
 export interface RagVisualizationAuditPipelineOptions extends RagVisualizationPlanningOptions {
   htmlGenerator?: (input: RagWidgetHtmlGenerationInput) => Promise<string>;
@@ -310,23 +334,12 @@ export async function generateRagWidgetHtml(input: RagWidgetHtmlGenerationInput)
         messages: [
           {
             role: 'system',
-            content: `You are STEMotion RAG WidgetHtmlAgent.
-
-Task: generate one complete self-contained HTML document for a problem-specific RAG visualization.
-
-Return HTML only. No markdown or prose.
-
-Rules:
-- Use pure inline HTML/CSS/JavaScript.
-- No remote resources, network requests, storage APIs, eval, dynamic import, or nested iframes.
-- The widget must be problem-specific, not a generic explanation page.
-- Preserve the original question, variables, known values, and requested result.`,
+            content: RAG_WIDGET_HTML_SYSTEM_PROMPT,
           },
           { role: 'user', content: prompt },
         ],
         temperature: 0.2,
-        maxTokens: 32768,
-        stream: true,
+        requestPreset: 'artifact',
       }),
       900000,
       'RAG visualization HTML generation timed out.',
@@ -379,6 +392,17 @@ ${formulaText}
 最终结果：
 ${resultText}
 
+设计上下文（必须落实到 HTML 结构、CSS 和交互，不要作为可见长说明堆在页面里）：
+${buildRagVisualizationDesignContext({
+  medium: 'problem-specific RAG visualization widget',
+  originalQuestion: input.question,
+  variables: input.plan.variables,
+  visualObjects: input.plan.visualObjects,
+  controls: input.plan.controls,
+  metrics: input.plan.metrics,
+  interactionIntent: input.plan.animationRequirements.join('；') || input.plan.problemRestatement,
+})}
+
 HTML 合约（必须全部满足）：
 1. 输出完整 <!DOCTYPE html> 文档，只允许内联 CSS/JS。
 2. 包含 <script type="application/json" id="widget-config">，JSON 内含 concept、variables、defaultState、messageTargets。
@@ -388,10 +412,17 @@ HTML 合约（必须全部满足）：
 6. 用 requestAnimationFrame 实现可见动画，满足 animationRequirements：${input.plan.animationRequirements.join('；')}。
 7. 监听 window message，并实现 SET_WIDGET_STATE、HIGHLIGHT_ELEMENT、ANNOTATE_ELEMENT、REVEAL_ELEMENT。
 8. 发送 WIDGET_READY、WIDGET_RUNTIME_REPORT、WIDGET_RUNTIME_ERROR、WIDGET_PONG、WIDGET_ACTION_ACK。
-9. 控件必须能改变动画或指标，指标必须显示：${input.plan.metrics.join('、')}。
-10. 移动端 375px 不横向溢出；主舞台高度稳定；不要卡片套卡片；不要营销页式 hero。
+		9. 控件必须能改变动画或指标，指标必须显示：${input.plan.metrics.join('、')}。
+		10. 移动端 375px 不横向溢出；主舞台高度稳定；不要卡片套卡片；不要营销页式 hero。
+		11. 遵守共享 artifact design contract：
+${artifactDesignContractPrompt({
+  medium: 'problem-specific RAG visualization widget',
+  mainStage: 'main visualization/work area',
+  supportPanel: 'right explanation/sidebar area',
+  supportingContent: 'the original question, variables, demonstration plan, learning goals, citations, formulas, and long explanations',
+})}
 
-必须复制并改造的 JS 结构：
+	必须复制并改造的 JS 结构：
 - const state = {...} 或 var state = {...}
 - function draw() { ... }：绘制 SVG/Canvas/DOM 状态。
 - function update() { draw(); ... }：把控件值和指标同步到页面。

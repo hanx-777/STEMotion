@@ -26,6 +26,14 @@ Generate one complete, self-contained HTML5 diagram or mind map. Return ONLY the
 
 ## Layout And UX
 
+- Optimize the first screen for 1366x768, 1440x900, and 1920x1080. The root node, core controls, and main diagram area must be visible above the fold.
+- Reuse existing STEMotion visual vocabulary and design context; do not invent a disconnected visual system.
+- Add `data-screen-label` to high-level screen, stage, panel, and detail regions so review feedback can target the right area.
+- Anti-filler: avoid generic hero sections, decorative placeholders, and filler copy that does not support the learning interaction.
+- Give the diagram/work area 65%-75% of the desktop layout, with any detail/sidebar area limited to 25%-35%.
+- Keep the top title/header compact and keep controls in one compact row or two tight rows.
+- Put node details, learning goals, variable notes, and long explanations inside collapsible `<details>` blocks or one secondary scroll panel.
+- Avoid nested scroll containers; if scrolling is needed, keep it to the secondary panel and leave the diagram stage stable.
 - Mobile width 375px must keep controls, diagram, and details readable.
 - Touch targets must be at least 44px.
 - Use high contrast and readable node labels.

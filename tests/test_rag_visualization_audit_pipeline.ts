@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
 import type { AgentEvaluation } from '../src/lib/deep-interaction/types';
 import {
+  RAG_WIDGET_HTML_SYSTEM_PROMPT,
   buildRagWidgetHtmlPrompt,
   runRagVisualizationAuditPipeline,
 } from '../src/lib/rag/visualization/auditPipeline';
@@ -11,6 +14,10 @@ import {
 } from '../src/lib/rag/visualization/widgetContract';
 import { validateInteractiveHtml } from '../src/lib/generation/htmlSafety';
 import { evaluateRuntime } from '../src/lib/deep-interaction/agents/runtimeEvaluator';
+import { ARTIFACT_DESIGN_CONTRACT_MARKER } from '../src/lib/generation/artifactDesignContract';
+import { DESIGN_REVIEW_RUBRIC_MARKER } from '../src/lib/deep-interaction/agents/designReviewRubric';
+
+const ROOT = process.cwd();
 
 const safeHtml = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -160,6 +167,30 @@ test('RAG widget HTML prompt requires deep-interaction widget contract', () => {
   assert.match(prompt, /function update/);
   assert.match(prompt, /function draw/);
   assert.match(prompt, /function animate/);
+  assert.match(prompt, new RegExp(ARTIFACT_DESIGN_CONTRACT_MARKER));
+  assert.match(prompt, /STEMOTION_RAG_VISUALIZATION_DESIGN_CONTEXT/);
+  assert.match(prompt, /design context/i);
+  assert.match(prompt, /STEMotion visual vocabulary/i);
+  assert.match(prompt, /anti-filler/i);
+  assert.match(prompt, /first-screen stage-first/i);
+  assert.match(prompt, /problem-specific interaction/i);
+  assert.match(RAG_WIDGET_HTML_SYSTEM_PROMPT, new RegExp(ARTIFACT_DESIGN_CONTRACT_MARKER));
+  assert.match(RAG_WIDGET_HTML_SYSTEM_PROMPT, /STEMOTION_RAG_VISUALIZATION_DESIGN_CONTEXT/);
+});
+
+test('RAG visualization audit reuses the shared design-quality reviewer chain', () => {
+  const auditSource = readFileSync(join(ROOT, 'src/lib/rag/visualization/auditPipeline.ts'), 'utf8');
+  const uxEvaluatorSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/uxEvaluatorAgent.ts'), 'utf8');
+  const judgeSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/judgeAgent.ts'), 'utf8');
+  const repairSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/repairAgent.ts'), 'utf8');
+
+  assert.match(auditSource, /evaluateUX/);
+  assert.match(auditSource, /judgeEvaluations/);
+  assert.match(auditSource, /repairArtifact/);
+  assert.match(uxEvaluatorSource, /designReviewRubricPrompt/);
+  assert.match(DESIGN_REVIEW_RUBRIC_MARKER, /STEMOTION_DESIGN_REVIEW_RUBRIC/);
+  assert.match(judgeSource, /collectDesignQualityBlockers/);
+  assert.match(repairSource, /designRepairPrompt/);
 });
 
 test('widget contract diagnostics detect and patch missing runtime protocol', () => {
@@ -198,6 +229,37 @@ test('widget contract patch inserts missing reset button inside the controls sec
   assert.ok(controlsMatch?.[1].includes('id="reset-btn"'), 'reset button should be inserted into #controls');
   assert.equal(visualizationMatch?.[1].includes('id="reset-btn"'), false);
   assert.equal(metricsMatch?.[1].includes('id="reset-btn"'), false);
+});
+
+test('widget contract patch injects fallback canvas drawing operations', () => {
+  const canvasWithoutDrawing = `<!DOCTYPE html>
+<html lang="zh-CN">
+<body>
+  <main>
+    <section id="visualization"><canvas id="stage" width="320" height="180"></canvas></section>
+    <section id="controls"><button id="start-btn" type="button">开始</button><button id="reset-btn" type="button">重置</button></section>
+    <section id="metrics">状态</section>
+  </main>
+  <script type="application/json" id="widget-config">{"concept":"测试","variables":[],"defaultState":{"running":false},"messageTargets":[]}</script>
+  <script>
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+    function update() {}
+    window.addEventListener('message', function () {});
+    window.addEventListener('error', function () {});
+    requestAnimationFrame(function tick(){ requestAnimationFrame(tick); });
+  </script>
+</body>
+</html>`;
+
+  const diagnostic = diagnoseRagWidgetContract(canvasWithoutDrawing);
+  assert.equal(diagnostic.passed, false);
+  assert.ok(diagnostic.missing.includes('canvas drawing operations'));
+
+  const patched = ensureRagWidgetContractHtml(canvasWithoutDrawing);
+  assert.equal(validateInteractiveHtml(patched).ok, true);
+  assert.equal(diagnoseRagWidgetContract(patched).passed, true);
+  assert.match(patched, /data-rag-canvas-fallback/);
 });
 
 test('audit pipeline patches weak safe HTML into a ready artifact without relying on LLM repair', async () => {

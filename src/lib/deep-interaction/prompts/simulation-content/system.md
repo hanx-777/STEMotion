@@ -25,6 +25,14 @@ Generate one complete, self-contained HTML5 simulation. Return ONLY the HTML doc
 
 ## Layout And UX
 
+- Optimize the first screen for 1366x768, 1440x900, and 1920x1080. The core controls, main result, and visualization stage must be visible above the fold.
+- Reuse existing STEMotion visual vocabulary and design context; do not invent a disconnected visual system.
+- Add `data-screen-label` to high-level screen, stage, panel, and detail regions so review feedback can target the right area.
+- Anti-filler: avoid generic hero sections, decorative placeholders, and filler copy that does not support the learning interaction.
+- Give the main visualization/work area 65%-75% of the desktop layout, with any explanation/sidebar area limited to 25%-35%.
+- Keep the top title/header compact and keep controls in one compact row or two tight rows.
+- Put variables, learning goals, formulas, plans, and long explanations inside collapsible `<details>` blocks or one secondary scroll panel.
+- Avoid nested scroll containers; if scrolling is needed, keep it to the secondary panel and leave the main stage stable.
 - Mobile width 375px must not overlap controls, visualization, or metrics.
 - Prefer a vertical flex/grid layout: controls above, stable visualization stage, metrics below.
 - Touch targets must be at least 44px. Slider thumbs should be easy to drag.

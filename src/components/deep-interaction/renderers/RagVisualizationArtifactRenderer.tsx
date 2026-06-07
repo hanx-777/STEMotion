@@ -19,18 +19,18 @@ export default function RagVisualizationArtifactRenderer({
   const plan = schema.visualizationPlan;
 
   return (
-    <div className="flex h-full min-h-[640px] flex-col bg-white text-slate-900">
-      <div className="border-b border-slate-200 p-4">
-        <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-teal-700">
+    <div className="flex h-full min-h-[min(560px,calc(100vh-10rem))] flex-col bg-white text-slate-900 lg:min-h-0">
+      <div className="hidden border-b border-slate-200 px-3 py-2.5 sm:block lg:px-4">
+        <div className="mb-1 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-teal-700">
           <BookOpenCheck size={15} />
           RAG 可视化 Artifact
         </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h3 className="text-lg font-black text-slate-900">{schema.title}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">{schema.description}</p>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-black text-slate-900 lg:text-base">{schema.title}</h3>
+            <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-slate-600 sm:line-clamp-2">{schema.description}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-xs font-bold text-teal-700">
+          <div className="flex shrink-0 items-center gap-2 rounded-md border border-teal-100 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
             <BadgeCheck size={15} />
             {qualityLabel}
             {artifact.finalScore != null ? ` ${artifact.finalScore}` : ''}
@@ -38,8 +38,8 @@ export default function RagVisualizationArtifactRenderer({
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div data-rag-visualization-stage className="flex min-h-[560px] min-w-0 overflow-hidden p-4 lg:p-5">
+      <div data-rag-visualization-body className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,74fr)_minmax(240px,26fr)]">
+        <div data-rag-visualization-stage data-rag-stage-shell className="flex min-h-[420px] min-w-0 overflow-hidden p-2.5 sm:min-h-[480px] lg:min-h-0 lg:p-3">
           {schema.htmlWidget?.html ? (
             <div className="min-h-0 flex-1">
               <HtmlWidgetRenderer artifact={artifact} />
@@ -49,10 +49,10 @@ export default function RagVisualizationArtifactRenderer({
           )}
         </div>
 
-        <aside data-rag-explanation-panel className="custom-scrollbar min-h-0 overflow-y-auto border-t border-slate-200 bg-slate-50 p-4 lg:border-l lg:border-t-0">
+        <aside data-rag-explanation-panel className="custom-scrollbar min-h-0 overflow-y-auto border-t border-slate-200 bg-slate-50 p-2.5 lg:border-l lg:border-t-0 lg:p-3">
           {brief && (
-            <section className="mb-5 rounded-lg border border-teal-100 bg-white p-3 text-sm leading-relaxed text-slate-700">
-              <div className="text-xs font-black uppercase tracking-wider text-teal-700">题目情境</div>
+            <details data-rag-explanation-details open className="mb-3 rounded-lg border border-teal-100 bg-white p-3 text-sm leading-relaxed text-slate-700">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-teal-700">题目情境</summary>
               <div className="mt-2 font-bold text-slate-900">{brief.knowledgePoint}</div>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">{brief.originalQuestion}</p>
               <p className="mt-2 text-xs leading-relaxed text-slate-600">{brief.visualGoal}</p>
@@ -66,12 +66,12 @@ export default function RagVisualizationArtifactRenderer({
                   ))}
                 </div>
               )}
-            </section>
+            </details>
           )}
 
           {plan && (
-            <section className="mb-5 rounded-lg border border-blue-100 bg-white p-3 text-sm leading-relaxed text-slate-700">
-              <div className="text-xs font-black uppercase tracking-wider text-blue-700">演示计划</div>
+            <details data-rag-explanation-details className="mb-3 rounded-lg border border-blue-100 bg-white p-3 text-sm leading-relaxed text-slate-700">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-blue-700">演示计划</summary>
               <div className="mt-2 font-bold text-slate-900">{plan.knowledgePoint}</div>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">{plan.problemRestatement}</p>
               <div className="mt-3 space-y-2 text-xs">
@@ -88,43 +88,43 @@ export default function RagVisualizationArtifactRenderer({
                   <span className="text-slate-600">{plan.metrics.join('、')}</span>
                 </div>
               </div>
-            </section>
+            </details>
           )}
 
-          <section>
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+          <details data-rag-explanation-details className="rounded-lg bg-white p-3">
+            <summary className="flex cursor-pointer items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
               <BookOpenCheck size={14} />
               学习目标
-            </div>
-            <ul className="mt-2 space-y-2 text-sm leading-relaxed text-slate-700">
+            </summary>
+            <ul className="mt-2 space-y-2 text-xs leading-relaxed text-slate-700">
               {schema.learningGoals.map((goal) => (
-                <li key={goal} className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                <li key={goal} className="rounded-md bg-slate-50 px-3 py-2">
                   {goal}
                 </li>
               ))}
             </ul>
-          </section>
+          </details>
 
-          <section className="mt-5">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+          <details data-rag-explanation-details className="mt-3 rounded-lg bg-white p-3">
+            <summary className="flex cursor-pointer items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
               <ClipboardList size={14} />
               讲解步骤
-            </div>
-            <ol className="mt-2 space-y-2 text-sm leading-relaxed text-slate-700">
+            </summary>
+            <ol className="mt-2 space-y-2 text-xs leading-relaxed text-slate-700">
               {schema.explanationSteps.slice(0, 6).map((step) => (
-                <li key={step.id} className="rounded-lg bg-white px-3 py-2 shadow-sm">
+                <li key={step.id} className="rounded-md bg-slate-50 px-3 py-2">
                   <div className="font-bold text-slate-800">{step.title}</div>
                   <div className="mt-1 text-xs leading-relaxed text-slate-500">{step.narration}</div>
                 </li>
               ))}
             </ol>
-          </section>
+          </details>
 
-          <section className="mt-5 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-500">
-            <div className="mb-2 flex items-center gap-2 font-black uppercase tracking-wider text-slate-500">
+          <details data-rag-explanation-details className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-500">
+            <summary className="mb-2 flex cursor-pointer items-center gap-2 font-black uppercase tracking-wider text-slate-500">
               <Database size={14} />
               审计与来源
-            </div>
+            </summary>
             {artifact.qualityReport && (
               <>
                 <div>质量：{qualityLabel} / {artifact.qualityReport.finalScore}</div>
@@ -134,7 +134,7 @@ export default function RagVisualizationArtifactRenderer({
             <div>页面：{schema.ragMetadata.source === 'teacher' ? '教师助教' : '学生问答'}</div>
             <div>学科：{schema.ragMetadata.subject}</div>
             <div>任务：{schema.ragMetadata.taskType}</div>
-          </section>
+          </details>
         </aside>
       </div>
     </div>

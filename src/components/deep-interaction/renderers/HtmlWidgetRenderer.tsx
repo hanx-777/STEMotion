@@ -37,14 +37,17 @@ export default function HtmlWidgetRenderer({ artifact }: { artifact: Interaction
 
   if (!widget?.html) {
     return (
-      <div className="flex h-full min-h-[520px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+      <div className="flex h-full min-h-[min(420px,calc(100vh-14rem))] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 lg:min-h-0">
         这个交互还没有可渲染的 HTML Widget。
       </div>
     );
   }
 
   return (
-    <div className="relative h-full min-h-[560px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm">
+    <div
+      data-html-widget-shell
+      className="relative h-full min-h-[min(440px,calc(100vh-14rem))] overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm sm:min-h-[min(500px,calc(100vh-12rem))] lg:min-h-0"
+    >
       <iframe
         ref={iframeRef}
         srcDoc={patchedHtml}

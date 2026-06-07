@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   clearRagSessionRecords,
+  classifyRagSessionSaveIntent,
   deleteRagSessionRecord,
   MAX_RAG_SESSIONS,
   renameRagSessionRecord,
+  resolveRagAutoSaveSessionId,
+  resolveRagSaveSessionId,
   upsertRagSessionRecord,
   type RagSessionRecord,
   type RagSessionSnapshot,
@@ -69,4 +72,163 @@ test('RAG session records can be renamed, deleted, and cleared', () => {
   assert.deepEqual(sessions.map((item) => item.id), ['01']);
 
   assert.deepEqual(clearRagSessionRecords(), []);
+});
+
+test('RAG auto-save reuses the current session only for the same learning thread', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    resolveRagAutoSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '  斜抛运动最大高度如何计算？  ',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    '01',
+  );
+
+  assert.equal(
+    resolveRagAutoSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '为什么匀速圆周运动仍有加速度？',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    undefined,
+  );
+});
+
+test('RAG auto-save starts a new session when subject or task changes', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    resolveRagAutoSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动最大高度如何计算？',
+      subject: 'chemistry_reactions',
+      taskType: 'step_solution',
+    }),
+    undefined,
+  );
+
+  assert.equal(
+    resolveRagAutoSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动最大高度如何计算？',
+      subject: 'physics_mechanics',
+      taskType: 'teacher_prep',
+    }),
+    undefined,
+  );
+});
+
+test('RAG save intent updates the current session for exact or highly similar questions', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId: '01',
+      question: '  斜抛运动最大高度如何计算？！ ',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    'update-current',
+  );
+
+  assert.equal(
+    classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动的最大高度如何计算',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    'update-current',
+  );
+});
+
+test('RAG save intent creates new sessions for unrelated questions or changed context', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId: '01',
+      question: '为什么匀速圆周运动仍有加速度？',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    'new-session',
+  );
+
+  assert.equal(
+    classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动最大高度如何计算？',
+      subject: 'physics_mechanics',
+      taskType: 'teacher_prep',
+    }),
+    'new-session',
+  );
+});
+
+test('RAG save intent asks for confirmation for medium-similarity edits', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动飞行时间如何计算？',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+    }),
+    'needs-confirmation',
+  );
+});
+
+test('RAG save id resolution honors explicit update and new-session modes', () => {
+  const sessions = [
+    upsertRagSessionRecord([], snapshot('01', '斜抛运动最大高度如何计算？'))[0],
+  ];
+
+  assert.equal(
+    resolveRagSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '斜抛运动最大高度如何计算？',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+      mode: 'new-session',
+    }),
+    undefined,
+  );
+
+  assert.equal(
+    resolveRagSaveSessionId({
+      sessions,
+      currentSessionId: '01',
+      question: '为什么匀速圆周运动仍有加速度？',
+      subject: 'physics_mechanics',
+      taskType: 'step_solution',
+      mode: 'update-current',
+    }),
+    '01',
+  );
 });

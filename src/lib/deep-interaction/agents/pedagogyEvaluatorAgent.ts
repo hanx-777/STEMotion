@@ -31,8 +31,7 @@ export async function evaluatePedagogy(ctx: PedagogyEvalContext): Promise<AgentE
           { role: 'user', content: buildUserPrompt(ctx) },
         ],
         temperature: 0.1,
-        maxTokens: 8000,
-        stream: false,
+        requestPreset: 'reviewer',
       }),
       30000,
     );

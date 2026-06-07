@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Send } from 'lucide-react';
 import type {
@@ -23,6 +23,7 @@ import StudyModePanel from './StudyModePanel';
 import TemplateMatchPanel from './TemplateMatchPanel';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 import { useResearchLogStore } from '@/lib/stores/researchLogStore';
+import { RAG_TO_LAB_PREFILL_KEY } from '@/features/rag-lab-bridge/buildLabPrompt';
 
 export default function DeepInteractionRightPanel({
   selectedType,
@@ -46,7 +47,9 @@ export default function DeepInteractionRightPanel({
   const searchParams = useSearchParams();
   const setPendingPrompt = useDeepInteractionUIStore((state) => state.setPendingPrompt);
   const [prompt, setPrompt] = useState(() => searchParams.get('prompt') ?? '');
+  const [prefillNotice, setPrefillNotice] = useState<string | null>(null);
   const [pendingApplied, setPendingApplied] = useState(false);
+  const labBridgePrefillAppliedRef = useRef(false);
 
   const pendingPrompt = useSyncExternalStore(
     useDeepInteractionUIStore.subscribe,
@@ -73,6 +76,37 @@ export default function DeepInteractionRightPanel({
   const [guidedPlan, setGuidedPlan] = useState<GuidedGenerationPlan | null>(null);
   const selectedMeta = interactionTypeMeta[selectedType];
   const logResearchEvent = useResearchLogStore((state) => state.logEvent);
+
+  useEffect(() => {
+    if (labBridgePrefillAppliedRef.current) return;
+    labBridgePrefillAppliedRef.current = true;
+    const fromRagBridge = searchParams.get('from') === 'rag-bridge';
+    let prefillTimer: number | null = null;
+    const schedulePrefillState = (nextPrompt: string | null, notice: string) => {
+      prefillTimer = window.setTimeout(() => {
+        if (nextPrompt !== null) setPrompt(nextPrompt);
+        setPrefillNotice(notice);
+      }, 0);
+    };
+
+    try {
+      const prefillPrompt = window.sessionStorage.getItem(RAG_TO_LAB_PREFILL_KEY);
+      if (prefillPrompt?.trim()) {
+        window.sessionStorage.removeItem(RAG_TO_LAB_PREFILL_KEY);
+        schedulePrefillState(prefillPrompt, '已从 RAG 回答带入实验 prompt，请确认后再生成 Guided Plan');
+      } else if (fromRagBridge) {
+        schedulePrefillState(null, '已从 RAG 跳转，但未找到可带入的实验 prompt。');
+      }
+    } catch {
+      if (fromRagBridge) {
+        schedulePrefillState(null, '当前浏览器无法读取 RAG 带入的实验 prompt，请返回回答页重新生成。');
+      }
+    }
+
+    return () => {
+      if (prefillTimer !== null) window.clearTimeout(prefillTimer);
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     if (!currentArtifact?.qualityReport) return;
@@ -208,21 +242,21 @@ export default function DeepInteractionRightPanel({
     <div
       className={
         mobile
-          ? 'max-h-[56vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl'
+          ? 'flex max-h-[min(52vh,420px)] flex-col overflow-hidden bg-white'
           : 'flex h-full flex-col overflow-hidden'
       }
     >
-      <div className="border-b border-slate-100 p-5">
+      <div className={mobile ? 'border-b border-slate-100 px-3 py-2' : 'border-b border-slate-100 p-3'}>
         <h2 className="text-base font-black">AI 交互生成</h2>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          先选择交互方式，再输入学习主题。系统会生成可运行的 HTML/SVG/Canvas 互动页，并自动保存到交互库。
+        <p className={mobile ? 'mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500' : 'mt-1 text-xs leading-5 text-slate-500'}>
+          输入主题，先生成 Guided Plan，再生成可运行互动页。
         </p>
-        <div className={`mt-4 rounded-lg border px-3 py-2 text-xs font-bold ${selectedMeta.accent}`}>
+        <div className={`mt-2 rounded-lg border px-3 py-1.5 text-xs font-bold ${selectedMeta.accent}`}>
           将生成：{selectedMeta.label}
         </div>
       </div>
 
-      <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-5">
+      <div className={mobile ? 'custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5' : 'custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3'}>
         <div>
           <label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-400">
             生成提示词
@@ -235,7 +269,7 @@ export default function DeepInteractionRightPanel({
                 if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submit();
               }}
               placeholder="例如：生成一个酸碱中和滴定动画"
-              className="min-h-24 flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              className="min-h-20 flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             />
             <button
               type="button"
@@ -247,6 +281,11 @@ export default function DeepInteractionRightPanel({
               {isGenerating || planningLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
             </button>
           </div>
+          {prefillNotice && (
+            <p className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-700">
+              {prefillNotice}
+            </p>
+          )}
         </div>
 
         <GuidedPlanningPanel

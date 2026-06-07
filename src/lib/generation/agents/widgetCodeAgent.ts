@@ -39,7 +39,7 @@ async function generateWidgetHtml(plan: ExperimentPlan, repairHint?: string): Pr
         { role: 'user', content: `Generate the interactive widget for: ${plan.title}` },
       ],
       temperature: repairHint ? 0.1 : 0.3,
-      maxTokens: 131072,
+      requestPreset: repairHint ? 'repair' : 'artifact',
     }),
     repairHint ? 60000 : 120000,
   );

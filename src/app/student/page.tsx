@@ -1,12 +1,5 @@
-'use client';
-
-import AppShell from '@/components/layout/AppShell';
-import RagWorkbench from '@/features/rag/ui/RagWorkbench';
+import { redirect } from 'next/navigation';
 
 export default function StudentPage() {
-  return (
-    <AppShell>
-      <RagWorkbench mode="student" />
-    </AppShell>
-  );
+  redirect('/learn');
 }

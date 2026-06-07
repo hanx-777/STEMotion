@@ -1,4 +1,5 @@
 import type { ExperimentPlan } from './agentPipeline';
+import { artifactDesignContractPrompt } from './artifactDesignContract';
 
 export const ALLOWED_WIDGET_MESSAGES = [
   'SET_WIDGET_STATE',
@@ -77,8 +78,13 @@ HTML contract:
 - Include variable controls, SVG or Canvas visualization, #start-btn, #reset-btn, and #metrics.
 - Use requestAnimationFrame for obvious visible motion.
 - Use a clear start/pause/reset state machine.
-- Mobile width 375px must not overlap controls and visualization.
-- Buttons and main controls need 44px touch targets and accessible labels.
+
+${artifactDesignContractPrompt({
+  medium: 'self-contained HTML/SVG/Canvas STEM widget',
+  mainStage: 'main visualization/work area',
+  supportPanel: 'side/explanation panels',
+  supportingContent: 'long explanations, variables, learning goals, and plans',
+})}
 
 postMessage contract:
 - SET_WIDGET_STATE merges state and rerenders.

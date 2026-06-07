@@ -2,6 +2,7 @@ import { generateWithConfiguredModel } from '@/lib/generation/llmClient';
 import { parseJsonResponse } from '@/lib/generation/jsonParser';
 import { createLogger } from '@/lib/logger';
 import type { AgentEvaluation, AgentIssue } from '../types';
+import { designReviewRubricPrompt } from './designReviewRubric';
 
 const log = createLogger('evaluator');
 const HTML_PREVIEW_CHARS = 6000;
@@ -26,8 +27,7 @@ export async function evaluateUX(ctx: UxEvalContext): Promise<AgentEvaluation> {
           { role: 'user', content: buildUserPrompt(ctx) },
         ],
         temperature: 0.1,
-        maxTokens: 8000,
-        stream: false,
+        requestPreset: 'reviewer',
       }),
       30000,
     );
@@ -89,7 +89,7 @@ export async function evaluateUX(ctx: UxEvalContext): Promise<AgentEvaluation> {
         severity: 'medium',
         category: 'ux',
         message: 'UX 评估 Agent 未能返回结果。',
-        suggestion: '请人工检查交互体验。',
+        suggestion: '请人工按 shared design-review rubric 检查首屏可用性、主舞台比例、响应式、滚动、控件命中区域和具体修复位置。',
         target: 'html',
       }],
       durationMs: Date.now() - startTime,
@@ -111,11 +111,22 @@ const SYSTEM_PROMPT = `你是 STEMotion UxEvaluatorAgent。
 - 可访问性 20%：对比度、标签、aria/label、键盘顺序、非纯颜色状态。
 - 交互反馈 20%：滑块、按钮、预设、运行状态有即时反馈。
 - 移动端与触控 20%：375px 无横向溢出，触控目标约 44px，控件不遮挡主舞台。
-- 布局与层级 20%：主舞台、控件、指标、说明分区清晰，文字不重叠。
+- 布局与层级 20%：主舞台、控件、指标、说明分区清晰，文字不重叠，1366x768 和 1440x900 首屏可用。
 - 动画与性能 10%：动画服务学习，使用 requestAnimationFrame 或等价平滑更新。
 - 教育场景适配 10%：鼓励观察、比较、调节和反馈，适合投屏和独立探索。
 
-高风险问题必须扣分并写入 issues：横向溢出、控件遮挡、无反馈、文字重叠、低对比、触控目标过小、hover-only、纯装饰动画。
+UI 布局审查必须覆盖：
+- 首屏是否能看到核心交互区和主要结果区，特别是 1366x768、1440x900。
+- 主区域、侧栏、说明区比例是否合理；主舞台应占 65%-75%，侧栏或说明区约 25%-35%。
+- 是否右栏过宽、主舞台过小、内容拥挤或过度留白。
+- 控件区是否过高，顶部标题区是否重复或过大，说明文字是否过长。
+- 是否存在多个滚动区域互相嵌套，导致普通笔记本屏幕无法稳定操作。
+- 是否需要 draggable splitter / 可拖动分隔栏；没有 splitter 时是否有稳定的 grid/flex 固定比例 fallback。
+- 每个 issue 的 suggestion 必须给出具体修改建议，例如压缩 header、把说明移入 details、把网格改为 72/28、减少 nested scroll。
+
+${designReviewRubricPrompt()}
+
+高风险问题必须扣分并写入 issues：横向溢出、控件遮挡、无反馈、文字重叠、低对比、触控目标过小、hover-only、纯装饰动画、右栏过宽、主舞台过小、嵌套滚动、首屏看不到核心交互。
 
 评分要求：
 - 90-100：课堂可直接使用。

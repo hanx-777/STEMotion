@@ -18,7 +18,13 @@ const statusIcon: Record<ProgressStatus, React.ReactNode> = {
   error: <AlertCircle size={16} className="text-red-500" />,
 };
 
-export default function RealisticProgressPanel({ model }: { model: ProgressModel }) {
+export default function RealisticProgressPanel({
+  model,
+  variant = 'default',
+}: {
+  model: ProgressModel;
+  variant?: 'default' | 'compact';
+}) {
   const stagesRef = useGsapReveal<HTMLDivElement>({ stagger: 0.05, y: 12 });
   const progressBarRef = useRef<HTMLDivElement>(null);
   const percent = calculateProgress(model);
@@ -57,6 +63,33 @@ export default function RealisticProgressPanel({ model }: { model: ProgressModel
       },
     );
   }, [model.currentStageId, stagesRef]);
+
+  if (variant === 'compact') {
+    return (
+      <div className="rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-sm font-semibold text-[var(--stemotion-ink)]">
+              {hasError ? '生成失败' : isDone ? '生成完成' : model.message || '正在处理...'}
+            </span>
+            {currentStage && !isDone && !hasError && (
+              <p className="mt-0.5 line-clamp-1 text-xs text-[var(--stemotion-muted)]">
+                {currentStage.detail ?? currentStage.description}
+              </p>
+            )}
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-[var(--stemotion-muted)]">{percent}%</span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div
+            ref={progressBarRef}
+            className={`h-full rounded-full ${hasError ? 'bg-red-400' : 'bg-teal-500'}`}
+            style={{ width: '0%' }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] p-4">

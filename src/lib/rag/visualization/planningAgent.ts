@@ -2,6 +2,7 @@ import { generateWithConfiguredModel } from '@/lib/generation/llmClient';
 import { parseJsonResponse } from '@/lib/generation/jsonParser';
 import { createLogger } from '@/lib/logger';
 import { createRagVisualizationBrief } from './briefAgent';
+import { buildRagVisualizationDesignContext } from './designContext';
 import type {
   RagVisualizationGenerationPlan,
   RagVisualizationNarrationStep,
@@ -48,13 +49,13 @@ export async function createRagVisualizationGenerationPlan(
 规则：
 - 禁止改题、泛化题或编造题目参数。
 - 缺失数值必须标为 unknown 或要求页面说明默认演示值。
-- 规划必须服务原题和 RAG 回答，不输出通用科普页。`,
+- 规划必须服务原题和 RAG 回答，不输出通用科普页。
+- Include design intent: STEMotion visual vocabulary, anti-filler, first-screen stage-first, and problem-specific interaction choices must be reflected in successCriteria and rightPanelNarration.`,
             },
             { role: 'user', content: prompt },
           ],
           temperature: 0.08,
-          maxTokens: 8000,
-          stream: false,
+          requestPreset: 'planning',
         }));
 
     const parsed = parseJsonResponse(raw) as Partial<RagVisualizationGenerationPlan>;
@@ -84,6 +85,7 @@ export function buildRagVisualizationPlanningPrompt(input: RagVisualizationPlann
 - 如果题目不适合可视化，shouldGenerate=false，并在 successCriteria 中解释。
 - recommendedType 优先用 "interactive_html"，除非非常确定只需结构化 fallback。
 - rightPanelNarration 是右侧讲解面板内容，保留原题、变量、观察目标、操作步骤。
+- design intent / 设计意图必须进入规划：复用 STEMotion visual vocabulary，遵守 anti-filler，采用 first-screen stage-first 布局，确保 problem-specific interaction。
 
 JSON 形状:
 {
@@ -112,6 +114,13 @@ ${formulaText}
 
 最终结果：
 ${resultText}
+
+设计上下文：
+${buildRagVisualizationDesignContext({
+  medium: 'RAG visualization planning brief',
+  originalQuestion: input.question,
+  interactionIntent: 'plan a problem-specific interaction before HTML generation',
+})}
 
 上下文：
 - subject: ${input.subject}

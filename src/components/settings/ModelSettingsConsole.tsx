@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { CheckCircle2, Loader2, Plus, RefreshCcw, Save, Server, Trash2 } from 'lucide-react';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { StemotionEmptyState, StemotionPageShell, StemotionPanel } from '@/components/ui/stemotion';
 
 type Provider = 'openai' | 'anthropic';
 
@@ -368,13 +369,19 @@ export default function ModelSettingsConsole() {
   }
 
   return (
-    <div className="stemotion-page custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:px-6">
-      <div ref={settingsMotionRef} className="mx-auto grid w-full max-w-7xl gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <aside data-settings-motion className="stemotion-elevated rounded-lg p-4">
+    <StemotionPageShell
+      data-settings-workbench
+      ref={settingsMotionRef}
+      eyebrow="模型配置"
+      title="模型与 API 设置"
+      description="配置 OpenAI 兼容接口或 Claude Messages API。密钥只写入本地配置，读取接口不会返回明文。"
+    >
+      <div className="grid w-full gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <StemotionPanel data-settings-motion elevated className="p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-[var(--stemotion-primary-strong)]">模型设置</p>
-              <h1 className="mt-1 text-xl font-bold text-[var(--stemotion-ink)]">API 与 Profile</h1>
+              <h2 className="mt-1 text-xl font-bold text-[var(--stemotion-ink)]">API 与 Profile</h2>
             </div>
             <button
               type="button"
@@ -388,13 +395,12 @@ export default function ModelSettingsConsole() {
 
           <div ref={profileListRef} className="mt-4 space-y-2">
             {loading ? (
-              <p className="rounded-lg border border-dashed border-[var(--stemotion-border)] bg-[#fbfaf6] px-3 py-8 text-center text-sm text-[var(--stemotion-muted)]">
-                正在加载模型配置...
-              </p>
+              <StemotionEmptyState title="正在加载模型配置..." />
             ) : profiles.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-[var(--stemotion-border)] bg-[#fbfaf6] px-3 py-8 text-center text-sm text-[var(--stemotion-muted)]">
-                暂无模型配置，请新建 OpenAI 或 Claude Profile。
-              </p>
+              <StemotionEmptyState
+                title="暂无模型配置"
+                description="请新建 OpenAI 或 Claude Profile。"
+              />
             ) : (
               profiles.map((profile) => (
                 <button
@@ -430,10 +436,10 @@ export default function ModelSettingsConsole() {
               ))
             )}
           </div>
-        </aside>
+        </StemotionPanel>
 
         <main data-settings-motion className="space-y-5">
-          <section className="stemotion-elevated rounded-lg p-5">
+          <StemotionPanel elevated className="p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs font-semibold text-[var(--stemotion-primary-strong)]">Profile 编辑</p>
@@ -585,9 +591,9 @@ export default function ModelSettingsConsole() {
                 保存配置
               </button>
             </div>
-          </section>
+          </StemotionPanel>
 
-          <section className="stemotion-panel rounded-lg p-4">
+          <StemotionPanel className="p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--stemotion-ink)]">
               <Server size={17} />
               接口说明
@@ -600,10 +606,10 @@ export default function ModelSettingsConsole() {
                 <strong className="text-[var(--stemotion-ink)]">Claude</strong> 使用 <code>x-api-key</code> 与 <code>anthropic-version</code> 调用 <code>/v1/models</code>，生成链路继续走 Messages API。
               </p>
             </div>
-          </section>
+          </StemotionPanel>
         </main>
       </div>
-    </div>
+    </StemotionPageShell>
   );
 }
 

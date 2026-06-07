@@ -1,4 +1,5 @@
 import { generateWithConfiguredModel } from '@/lib/generation/llmClient';
+import { artifactDesignContractPrompt } from '@/lib/generation/artifactDesignContract';
 import {
   assertSafeInteractiveHtml,
   patchTruncatedHtml,
@@ -9,14 +10,18 @@ import { withTimeout } from '@/lib/utils/withTimeout';
 import { createLogger } from '@/lib/logger';
 import type { LLMFollowUpResult } from './followUpHandler';
 import type { LearningBlueprint, TemplateMetadata } from './types';
+import { followUpDesignProtectionPrompt } from './agents/designReviewRubric';
 
 const log = createLogger('followUp');
 
-export async function handleLLMFollowUp(
-  currentHtml: string,
-  userPrompt: string,
-  context: { title: string; concept: string; blueprint?: LearningBlueprint; templateMetadata?: TemplateMetadata },
-): Promise<LLMFollowUpResult> {
+export interface WidgetRefineContext {
+  title: string;
+  concept: string;
+  blueprint?: LearningBlueprint;
+  templateMetadata?: TemplateMetadata;
+}
+
+export function buildWidgetRefineSystemPrompt(context: WidgetRefineContext): string {
   const blueprintRules = context.blueprint
     ? `
 
@@ -41,7 +46,8 @@ Verified Template constraints:
 - If the user asks for a change that breaks subject correctness, refuse that change in the HTML text and preserve the existing template behavior.
 `
     : '';
-  const system = `You are STEMotion WidgetRefineAgent.
+
+  return `You are STEMotion WidgetRefineAgent.
 
 Task: modify an existing self-contained HTML interactive widget according to the user's request.
 
@@ -55,8 +61,23 @@ Rules:
 - Apply the requested change while keeping unrelated behavior intact.
 - Use Chinese for user-facing text if the original HTML uses Chinese.
 - The output must start with <!DOCTYPE html> and end with </html>.
+${artifactDesignContractPrompt({
+  medium: 'refined existing interactive widget',
+  mainStage: 'existing main simulation/game/visualization stage',
+  supportPanel: 'existing supporting panels, sidebars, and control areas',
+  supportingContent: 'variables, formulas, observations, quiz, learning goals, and long explanations',
+})}
+${followUpDesignProtectionPrompt()}
 ${blueprintRules}
 ${templateRules}`;
+}
+
+export async function handleLLMFollowUp(
+  currentHtml: string,
+  userPrompt: string,
+  context: WidgetRefineContext,
+): Promise<LLMFollowUpResult> {
+  const system = buildWidgetRefineSystemPrompt(context);
 
   const raw = await withTimeout(
     generateWithConfiguredModel({
@@ -68,7 +89,7 @@ ${templateRules}`;
         },
       ],
       temperature: 0.2,
-      maxTokens: 131072,
+      requestPreset: 'repair',
     }),
     900000,
   );

@@ -273,8 +273,7 @@ async function generateAnswerDraft(input: {
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
-      maxTokens: 16384,
-      stream: false,
+      requestPreset: 'answer',
     });
 
     const parsed = parseRagAnswerDraft({

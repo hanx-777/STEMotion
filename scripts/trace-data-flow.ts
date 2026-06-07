@@ -178,7 +178,7 @@ Use the same language as the user.`;
   const raw = await generateWithConfiguredModel({
     messages,
     temperature: 0.12,
-    maxTokens: 131072,
+    requestPreset: 'planning',
   });
   const durationMs = Date.now() - t0;
 
@@ -193,7 +193,7 @@ Use the same language as the user.`;
     input: { prompt, preferredType, systemPromptLength: system.length },
     output: parsed,
     durationMs,
-    notes: `temperature=0.12, maxTokens=16000 (含 thinking budget)`,
+    notes: 'temperature=0.12, requestPreset=planning (maxTokens=16000, stream/thinking centralized)',
   });
 
   log(`  ✓ 计划生成完成 (${durationMs}ms): "${parsed.title}"`);
@@ -253,7 +253,7 @@ Simulation widget requirements:
   const raw = await generateWithConfiguredModel({
     messages,
     temperature: 0.24,
-    maxTokens: 32000,
+    requestPreset: 'artifact',
   });
   const durationMs = Date.now() - t0;
 
@@ -271,7 +271,7 @@ Simulation widget requirements:
       validationResult: validation,
     },
     durationMs,
-    notes: `temperature=0.24, maxTokens=32000 (含 thinking budget)`,
+    notes: 'temperature=0.24, requestPreset=artifact (maxTokens=32768, stream/thinking centralized)',
   });
 
   if (!validation.ok) {
@@ -294,7 +294,7 @@ The repaired HTML must include widget-config, requestAnimationFrame, start/reset
         },
       ],
       temperature: 0.1,
-      maxTokens: 131072,
+      requestPreset: 'repair',
     });
 
     const repairedHtml = stripMarkdownCodeFence(repairRaw);
@@ -305,7 +305,7 @@ The repaired HTML must include widget-config, requestAnimationFrame, start/reset
       input: { errors: validation.errors },
       output: { htmlLength: repairedHtml.length, revalidation },
       durationMs: Date.now() - t0 - durationMs,
-      notes: 'temperature=0.1, maxTokens=11000',
+      notes: 'temperature=0.1, requestPreset=repair (maxTokens=32768, stream/thinking centralized)',
     });
 
     if (!revalidation.ok) {
@@ -356,7 +356,7 @@ Use the user's language.`;
   const raw = await generateWithConfiguredModel({
     messages,
     temperature: 0.16,
-    maxTokens: 131072,
+    requestPreset: 'teacherActions',
   });
   const durationMs = Date.now() - t0;
 
@@ -368,7 +368,7 @@ Use the user's language.`;
     input: { planTitle: plan.title, targets },
     output: { actionCount: actions.length, actions },
     durationMs,
-    notes: `temperature=0.16, maxTokens=16000 (含 thinking budget)`,
+    notes: 'temperature=0.16, requestPreset=teacherActions (maxTokens=16000, stream/thinking centralized)',
   });
 
   log(`  ✓ 教师动作生成完成 (${durationMs}ms), ${actions.length} 个动作`);

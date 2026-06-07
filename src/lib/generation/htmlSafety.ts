@@ -363,6 +363,57 @@ export function patchTruncatedHtml(html: string): string {
   };`);
     }
 
+    if (hasCanvas && !hasDrawing) {
+      skeletonParts.push(`
+  // Fallback canvas drawing operations: keeps canvas widgets contract-valid when model output omitted draw calls
+  window.__ragCanvasFallbackDraw = function() {
+    var canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var width = canvas.width || canvas.clientWidth || 320;
+    var height = canvas.height || canvas.clientHeight || 180;
+    if (!canvas.width) canvas.width = width;
+    if (!canvas.height) canvas.height = height;
+    canvas.setAttribute('data-rag-canvas-fallback', 'true');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    for (var gx = 0; gx <= canvas.width; gx += 40) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, canvas.height);
+      ctx.stroke();
+    }
+    for (var gy = 0; gy <= canvas.height; gy += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(canvas.width, gy);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(32, canvas.height - 36);
+    ctx.lineTo(canvas.width * 0.35, canvas.height * 0.45);
+    ctx.lineTo(canvas.width * 0.68, canvas.height * 0.58);
+    ctx.lineTo(canvas.width - 32, 42);
+    ctx.stroke();
+    ctx.fillStyle = '#14b8a6';
+    ctx.beginPath();
+    ctx.arc(canvas.width * 0.68, canvas.height * 0.58, 9, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  var __previousRagDraw = typeof window.draw === 'function' ? window.draw : null;
+  window.draw = function() {
+    if (__previousRagDraw) __previousRagDraw();
+    window.__ragCanvasFallbackDraw();
+  };
+  window.__ragCanvasFallbackDraw();`);
+    }
+
     // WIDGET_READY postMessage
     if (!hasWidgetReady) {
       skeletonParts.push(`

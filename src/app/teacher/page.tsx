@@ -1,12 +1,5 @@
-'use client';
-
-import AppShell from '@/components/layout/AppShell';
-import RagWorkbench from '@/features/rag/ui/RagWorkbench';
+import { redirect } from 'next/navigation';
 
 export default function TeacherPage() {
-  return (
-    <AppShell>
-      <RagWorkbench mode="teacher" />
-    </AppShell>
-  );
+  redirect('/teach');
 }

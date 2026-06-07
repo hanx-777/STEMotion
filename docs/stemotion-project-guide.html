@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<!-- ==================================================================
+     LONG DOCUMENT TEMPLATE · parchment design system
+     STEMotion Physics Skill 项目说明文档
+     ================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>STEMotion Physics Skill 项目说明文档</title>
+<meta name="author" content="STEMotion Team">
+<meta name="description" content="面向高校大学物理力学课程的可追溯 RAG 智能助学与助教系统技术说明文档">
+<meta name="keywords" content="STEMotion, RAG, 物理力学, 智能教学, 知识库, Next.js">
+<meta name="generator" content="Kami">
+<style>
+  /* Regular weight */
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W04.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  /* Bold weight - W05 for all bold variants */
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W05.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 22mm 22mm 22mm;
+    background: #f5f4ed;
+
+    @top-right {
+      content: string(section-title);
+      font-family: "TsangerJinKai02", "Source Han Serif SC",
+                   "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 8pt;
+      color: #6b6a64;
+    }
+
+    @bottom-center {
+      content: counter(page) "  ·  STEMotion Physics Skill";
+      font-family: "TsangerJinKai02", "Source Han Serif SC",
+                   "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 9pt;
+      color: #6b6a64;
+    }
+  }
+
+  @page:first {
+    @top-right { content: ""; }
+    @bottom-center { content: ""; }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --parchment: #f5f4ed;
+    --ivory:     #faf9f5;
+    --near-black:#141413;
+    --dark-warm: #3d3d3a;
+    --olive:     #504e49;
+    --stone:     #6b6a64;
+    --brand:     #1B365D;
+    --border:    #e8e6dc;
+    --border-soft:#e5e3d8;
+    --tag-bg:    #E4ECF5;
+    --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+    --sans: var(--serif);
+
+    --rhythm-module:  14pt;
+    --rhythm-section: 18pt;
+  }
+
+  html, body { background: var(--parchment); }
+
+  @media screen {
+    body { max-width: 210mm; margin: 0 auto; padding: 20mm 22mm 22mm 22mm; }
+  }
+
+  body {
+    color: var(--near-black);
+    font-family: var(--serif);
+    font-size: 10.5pt;
+    line-height: 1.55;
+    letter-spacing: 0.3pt;
+    widows: 3;
+    orphans: 3;
+  }
+
+  .sans {
+    font-family: var(--sans);
+  }
+
+  /* ========== COVER ========== */
+  .cover {
+    min-height: 240mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40mm 0 0 0;
+    break-after: page;
+  }
+  .cover-eyebrow {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--brand);
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    margin-bottom: 18pt;
+  }
+  .cover-title {
+    font-size: 36pt;
+    font-weight: 500;
+    color: var(--near-black);
+    line-height: 1.15;
+    letter-spacing: 0.3pt;
+    margin-bottom: 16pt;
+  }
+  .cover-sub {
+    font-family: var(--sans);
+    font-size: 14pt;
+    color: var(--olive);
+    line-height: 1.5;
+    max-width: 85%;
+    margin-bottom: 30pt;
+  }
+  .cover-meta {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--stone);
+    line-height: 1.5;
+  }
+  .cover-meta strong {
+    color: var(--dark-warm);
+    font-weight: 500;
+  }
+
+  /* ========== TOC（目录）========== */
+  .toc { break-after: page; }
+  .toc h2 {
+    font-size: 22pt;
+    font-weight: 500;
+    margin-bottom: var(--rhythm-module);
+    border-left: 2.5pt solid var(--brand);
+    border-radius: 1.5pt;
+    padding-left: 8pt;
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6pt 0;
+    border-bottom: 0.3pt dotted var(--border);
+    font-size: 11pt;
+  }
+  .toc-item:last-of-type { border-bottom: none; }
+  .toc-num {
+    color: var(--brand);
+    font-weight: 500;
+    min-width: 30pt;
+  }
+  .toc-title {
+    flex: 1;
+    color: var(--near-black);
+    padding-left: 6pt;
+  }
+  .toc-page {
+    color: var(--stone);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ========== HEADINGS ========== */
+  h1 {
+    font-size: 22pt;
+    font-weight: 500;
+    line-height: 1.2;
+    margin: 0 0 10pt 0;
+    border-left: 2.5pt solid var(--brand);
+    border-radius: 1.5pt;
+    padding-left: 8pt;
+    color: var(--near-black);
+    break-after: avoid;
+  }
+
+  h2 {
+    font-size: 16pt;
+    font-weight: 500;
+    line-height: 1.25;
+    margin: 24pt 0 8pt 0;
+    color: var(--near-black);
+    break-after: avoid;
+    string-set: section-title content();
+  }
+
+  h3 {
+    font-size: 13pt;
+    font-weight: 500;
+    line-height: 1.3;
+    margin: 18pt 0 6pt 0;
+    color: var(--dark-warm);
+    break-after: avoid;
+  }
+
+  .chapter-num {
+    font-family: var(--sans);
+    font-size: 10pt;
+    color: var(--brand);
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    margin-bottom: 6pt;
+  }
+
+  /* ========== PARAGRAPHS ========== */
+  p {
+    margin: 0 0 10pt 0;
+    line-height: 1.55;
+    color: var(--near-black);
+    widows: 2;
+    orphans: 2;
+  }
+
+  .lead {
+    font-size: 12pt;
+    line-height: 1.55;
+    color: var(--dark-warm);
+    margin-bottom: var(--rhythm-module);
+  }
+
+  .hl { color: var(--brand); font-weight: 500; }
+  strong { font-weight: 500; }
+
+  /* ========== LISTS ========== */
+  ul, ol {
+    margin: 6pt 0 10pt 0;
+    padding-left: 20pt;
+    line-height: 1.55;
+  }
+  ul li::marker { color: var(--brand); }
+  ol li::marker { color: var(--brand); font-weight: 500; }
+
+  /* ========== QUOTE ========== */
+  blockquote, .quote {
+    border-left: 2pt solid var(--brand);
+    margin: 12pt 0;
+    padding: 4pt 0 4pt 16pt;
+    color: var(--olive);
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+  blockquote .cite, .quote .cite {
+    display: block;
+    font-size: 9pt;
+    color: var(--stone);
+    margin-top: 4pt;
+  }
+
+  /* ========== CODE ========== */
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Consolas,
+                 "TsangerJinKai02", "Source Han Serif SC",
+                 "Noto Serif CJK SC", "Songti SC", monospace;
+    font-size: 9pt;
+    background: var(--ivory);
+    padding: 1pt 4pt;
+    border-radius: 2pt;
+    color: var(--dark-warm);
+  }
+  pre {
+    font-family: "JetBrains Mono", "SF Mono", Consolas,
+                 "TsangerJinKai02", "Source Han Serif SC",
+                 "Noto Serif CJK SC", "Songti SC", monospace;
+    font-size: 9pt;
+    line-height: 1.5;
+    background: var(--ivory);
+    border-radius: 4pt;
+    padding: 10pt 14pt;
+    margin: 10pt 0;
+    white-space: pre-wrap;
+    color: var(--near-black);
+    break-inside: avoid;
+  }
+  pre code { background: transparent; padding: 0; font-size: inherit; }
+
+  /* ========== TABLE (kami-table) ========== */
+  table, .kami-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 12pt 0;
+    break-inside: avoid;
+  }
+  table th, .kami-table th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--dark-warm);
+    padding: 6pt 8pt;
+    border-bottom: 1pt solid var(--border);
+    background: transparent;
+  }
+  table td, .kami-table td {
+    padding: 5pt 8pt;
+    border-bottom: 0.3pt solid var(--border-soft);
+    vertical-align: top;
+  }
+  table.compact th, .kami-table.compact th { padding: 3pt 6pt; font-size: 8pt; }
+  table.compact td, .kami-table.compact td { padding: 2pt 6pt; font-size: 8pt; line-height: 1.4; }
+  table.financial td:not(:first-child), .kami-table.financial td:not(:first-child) {
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  table.financial th:not(:first-child), .kami-table.financial th:not(:first-child) { text-align: right; }
+  table.striped tbody tr:nth-child(even) td, .kami-table.striped tbody tr:nth-child(even) td {
+    background: var(--ivory);
+  }
+  table .total td, .kami-table .total td {
+    font-weight: 500; border-top: 1pt solid var(--brand); border-bottom: none; color: var(--near-black);
+  }
+
+  /* ========== CALLOUT ========== */
+  .callout {
+    background: var(--ivory);
+    border-left: 2pt solid var(--brand);
+    padding: 10pt 14pt;
+    border-radius: 3pt;
+    margin: 12pt 0;
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+  .callout blockquote,
+  .callout .quote {
+    border-left: none;
+    padding-left: 0;
+    margin: 6pt 0;
+    color: var(--olive);
+  }
+  .callout blockquote:first-child,
+  .callout .quote:first-child { margin-top: 0; }
+  .callout blockquote:last-child,
+  .callout .quote:last-child  { margin-bottom: 0; }
+
+  .takeaway {
+    background: var(--ivory);
+    border-radius: 4pt;
+    padding: 10pt 14pt;
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  .takeaway-label {
+    font-family: var(--sans);
+    font-size: 9pt;
+    color: var(--brand);
+    letter-spacing: 0.5pt;
+    text-transform: uppercase;
+    margin-bottom: 4pt;
+  }
+
+  /* ========== TAG ========== */
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--brand);
+    font-family: var(--sans);
+    font-size: 9pt;
+    font-weight: 500;
+    padding: 1pt 6pt;
+    border-radius: 3pt;
+    margin-right: 4pt;
+  }
+
+  /* ========== FIGURE ========== */
+  figure {
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  figure img {
+    max-width: 100%;
+    border-radius: 4pt;
+  }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 9pt;
+    color: var(--stone);
+    margin-top: 6pt;
+    text-align: center;
+  }
+
+  /* ========== EXECUTIVE SUMMARY ========== */
+  .exec-summary {
+    background: var(--ivory);
+    border-left: 1.4pt solid var(--brand);
+    border-radius: 6pt;
+    padding: 16pt 20pt;
+    margin: 14pt 0;
+    break-inside: avoid;
+  }
+  .exec-summary h2 {
+    margin-top: 0;
+    font-size: 13pt;
+  }
+
+  /* ========== CHAPTER BREAK ========== */
+  .chapter { break-before: page; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════ COVER ═════════════ -->
+<section class="cover">
+  <div>
+    <div class="cover-eyebrow">技术说明文档</div>
+    <div class="cover-title">STEMotion Physics Skill<br>项目说明文档</div>
+    <div class="cover-sub">面向高校大学物理力学课程的可追溯 RAG 智能助学与助教系统</div>
+  </div>
+  <div class="cover-meta">
+    <strong>STEMotion Team</strong><br>
+    版本 V1.0.1  ·  2026.06<br>
+    XH202620 参赛展示版
+  </div>
+</section>
+
+<!-- ═════════════ 目录 ═════════════ -->
+<section class="toc">
+  <h2>目录</h2>
+  <div class="toc-item">
+    <span class="toc-num">01</span>
+    <span class="toc-title">执行摘要</span>
+    <span class="toc-page">03</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">02</span>
+    <span class="toc-title">系统架构</span>
+    <span class="toc-page">04</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">03</span>
+    <span class="toc-title">核心功能</span>
+    <span class="toc-page">05</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">04</span>
+    <span class="toc-title">技术栈与目录结构</span>
+    <span class="toc-page">06</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">05</span>
+    <span class="toc-title">快速开始</span>
+    <span class="toc-page">07</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">06</span>
+    <span class="toc-title">页面入口与导航</span>
+    <span class="toc-page">08</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">07</span>
+    <span class="toc-title">RAG 工作流</span>
+    <span class="toc-page">09</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">08</span>
+    <span class="toc-title">学科 Skill 体系</span>
+    <span class="toc-page">10</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">09</span>
+    <span class="toc-title">API 接口</span>
+    <span class="toc-page">11</span>
+  </div>
+  <div class="toc-item">
+    <span class="toc-num">10</span>
+    <span class="toc-title">测试与验收</span>
+    <span class="toc-page">12</span>
+  </div>
+</section>
+
+<!-- ═════════════ Chapter 01：执行摘要 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">01 · Executive Summary</div>
+  <h1>执行摘要</h1>
+
+  <p class="lead">
+    STEMotion Physics Skill 是一个面向高校大学物理力学课程的<span class="hl">可追溯 RAG 智能教学系统</span>。
+    系统以本地知识库检索为优先，结合大模型生成能力，为学生提供分步解题、错因诊断，为教师提供备课支持和课堂演示。
+  </p>
+
+  <h2>核心 Takeaways</h2>
+  <ul>
+    <li><span class="hl">本地知识库优先</span>：系统先从本地课程知识库检索依据，再由大模型生成回答，确保引用可追溯</li>
+    <li><span class="hl">四学科覆盖</span>：大学物理力学（深度落地）、高等数学、大学化学、程序设计与数据结构（轻量配置）</li>
+    <li><span class="hl">38 个测试文件</span>：覆盖 RAG 管线、API 契约、可视化、架构边界等维度</li>
+    <li><span class="hl">版本化 API</span>：<code>/api/v1/*</code> 为正式接口，<code>/api/*</code> 保留兼容</li>
+  </ul>
+
+  <div class="takeaway">
+    <div class="takeaway-label">本文档回答的问题</div>
+    系统整体架构是什么样的？核心功能如何运作？如何快速启动和验证？学科 Skill 如何扩展？
+  </div>
+</section>
+
+<!-- ═════════════ Chapter 02：系统架构 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">02 · Architecture</div>
+  <h1>系统架构</h1>
+
+  <p class="lead">
+    采用 Next.js 16 模块化单体架构，前端页面、Route Handlers、业务逻辑和平台能力分层清晰。
+  </p>
+
+  <h2>分层结构</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>层级</th>
+        <th>目录</th>
+        <th>职责</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>页面层</strong></td>
+        <td><code>src/app/</code></td>
+        <td>Next.js App Router 页面和 Route Handler</td>
+      </tr>
+      <tr>
+        <td><strong>功能层</strong></td>
+        <td><code>src/features/</code></td>
+        <td>领域功能模块：rag、subjects、settings、deep-interaction、knowledge、assets、rag-lab-bridge</td>
+      </tr>
+      <tr>
+        <td><strong>平台层</strong></td>
+        <td><code>src/platform/</code></td>
+        <td>HTTP 处理、错误处理等平台能力</td>
+      </tr>
+      <tr>
+        <td><strong>共享层</strong></td>
+        <td><code>src/shared/</code></td>
+        <td>跨功能共享类型和工具</td>
+      </tr>
+      <tr>
+        <td><strong>组件层</strong></td>
+        <td><code>src/components/</code></td>
+        <td>共享 UI 组件</td>
+      </tr>
+      <tr>
+        <td><strong>库层</strong></td>
+        <td><code>src/lib/</code></td>
+        <td>RAG 检索、学科管理、配置等底层库</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>数据流</h2>
+
+  <div class="callout">
+    用户请求 → 前端页面 → <code>/api/v1/rag/ask</code> → SubjectManager 加载 Skill → Retriever 检索本地知识库
+    → 可选 WebSearchProvider 补充检索 → 构建 citations 和 prompt → OpenAI / Claude 生成最终回答
+    → 返回结构化回答 + 引用来源 + 可视化提示
+  </div>
+
+  <h2>关键设计原则</h2>
+  <ul>
+    <li>RAG 只负责检索依据、组织上下文和标注来源，最终回答由大模型生成</li>
+    <li>本地课程资料是优先可信来源，网络检索资料只作为补充</li>
+    <li>无可靠来源时仍调用大模型，但必须明确说明依据不足，不生成虚假 citations</li>
+    <li>版本化 API（<code>/api/v1/*</code>）为正式接口，旧版（<code>/api/*</code>）在一个版本周期内作为兼容入口</li>
+  </ul>
+</section>
+
+<!-- ═════════════ Chapter 03：核心功能 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">03 · Core Features</div>
+  <h1>核心功能</h1>
+
+  <p class="lead">
+    系统围绕"学生学习"和"教师教学"两个主场景，提供从知识检索到可视化实验的完整教学闭环。
+  </p>
+
+  <h2>学生学习</h2>
+
+  <h3>知识问答</h3>
+  <p>针对物理概念、公式含义、学习建议等开放性问题，系统从本地知识库检索相关章节，结合大模型生成结构化解释，附带可追溯引用来源。</p>
+
+  <h3>分步解题</h3>
+  <p>接收题目后，系统自动提取已知量、判断物理模型、分步推导、给出结果和易错点，并返回 <code>visualization_hint</code> 供前端渲染运动轨迹。</p>
+
+  <h3>错因诊断</h3>
+  <p>学生提交错误答案后，系统分析错误原因、给出纠正思路和巩固练习，帮助学生理解"为什么错"而非仅仅"对不对"。</p>
+
+  <h2>教师教学</h2>
+
+  <h3>教师备课</h3>
+  <p>生成教学目标、课堂导入、板书推导和互动提问，帮助教师快速准备课堂教学材料。</p>
+
+  <h3>可视化实验</h3>
+  <p>支持斜抛轨迹、圆周运动、机械能守恒、动量碰撞、简谐振动等物理过程的交互式可视化。教师可在课堂上演示参数变化对运动轨迹的影响。</p>
+
+  <h2>知识库管理</h2>
+
+  <h3>学科 Skill 切换</h3>
+  <p>每个学科拥有独立的配置文件（<code>skill.yaml</code>）、系统提示词、回答模板和知识库。支持一键切换学科，检索自动隔离。</p>
+
+  <h3>知识库健康度</h3>
+  <p><code>/knowledge</code> 页面可视化展示各学科知识库的索引状态、源文件数、chunk 数和覆盖范围，便于运维监控。</p>
+
+  <h3>教学资产管理</h3>
+  <p><code>/assets</code> 页面管理本地交互库，支持保存、打开、筛选和删除 artifact，方便教师复用教学素材。</p>
+</section>
+
+<!-- ═════════════ Chapter 04：技术栈 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">04 · Tech Stack</div>
+  <h1>技术栈与目录结构</h1>
+
+  <p class="lead">
+    基于 Next.js 16 App Router + React 19 + TypeScript 构建，本地检索采用 JSON 文件索引 + TF-IDF / cosine scoring。
+  </p>
+
+  <h2>技术栈</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>层级</th>
+        <th>技术</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>应用框架</td>
+        <td>Next.js <code>16.2.6</code> App Router</td>
+      </tr>
+      <tr>
+        <td>UI</td>
+        <td>React <code>19.2.4</code>、Tailwind CSS v4、lucide-react、framer-motion</td>
+      </tr>
+      <tr>
+        <td>语言</td>
+        <td>TypeScript</td>
+      </tr>
+      <tr>
+        <td>模型接口</td>
+        <td>OpenAI Chat Completions 兼容接口、Anthropic Claude Messages API</td>
+      </tr>
+      <tr>
+        <td>本地检索</td>
+        <td>JSON 文件索引 + TF-IDF / cosine scoring</td>
+      </tr>
+      <tr>
+        <td>文档加载</td>
+        <td>Markdown、TXT、PDF 可替换解析</td>
+      </tr>
+      <tr>
+        <td>测试</td>
+        <td>Node test runner + tsx</td>
+      </tr>
+      <tr>
+        <td>本地存储</td>
+        <td><code>.stemotion/</code> 运行态目录、<code>model-profiles.json</code> 本地模型配置</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>目录结构</h2>
+
+  <pre><code>stemotion-mvp/
+├── src/
+│   ├── app/                    # Next.js App Router 页面和 API
+│   │   ├── api/v1/             # 版本化 REST API
+│   │   ├── learn/              # 学生学习主入口
+│   │   ├── teach/              # 教师教学主入口
+│   │   ├── lab/                # 可视化实验
+│   │   ├── knowledge/          # 知识库健康度
+│   │   ├── assets/             # 教学资产管理
+│   │   └── settings/           # 模型与 API 设置
+│   ├── features/               # 领域功能模块
+│   │   ├── rag/                # RAG 核心逻辑
+│   │   ├── subjects/           # 学科 Skill 管理
+│   │   ├── settings/           # 模型配置管理
+│   │   ├── deep-interaction/   # 深度交互生成
+│   │   ├── knowledge/          # 知识库健康度
+│   │   ├── assets/             # 教学资产管理
+│   │   └── rag-lab-bridge/     # RAG -> Lab 桥接
+│   ├── platform/               # 平台层
+│   ├── shared/                 # 共享类型
+│   ├── components/             # UI 组件
+│   └── lib/                    # 底层库
+├── skills/                     # 学科 Skill 配置
+├── scripts/                    # 构建/测试脚本
+├── tests/                      # 38 个测试文件
+└── docs/                       # 设计文档</code></pre>
+</section>
+
+<!-- ═════════════ Chapter 05：快速开始 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">05 · Getting Started</div>
+  <h1>快速开始</h1>
+
+  <p class="lead">
+    五个步骤即可启动系统：安装依赖、配置模型、构建索引、启动服务、验证功能。
+  </p>
+
+  <h2>1. 安装依赖</h2>
+  <pre><code>npm install</code></pre>
+
+  <h2>2. 配置模型</h2>
+  <p>复制示例配置并填入 API Key：</p>
+  <pre><code>cp model-profiles.example.json model-profiles.json</code></pre>
+  <p>支持 OpenAI 和 Claude 两种模型接口，可在 <code>/settings</code> 页面可视化配置。</p>
+
+  <h2>3. 构建知识库索引</h2>
+  <pre><code>npm run rag:ingest -- --subject all</code></pre>
+  <p>索引产物写入 <code>.stemotion/vector-store/</code>，该目录是本地运行态，不提交到 Git。</p>
+
+  <h2>4. 启动开发服务器</h2>
+  <pre><code>npm run dev</code></pre>
+  <p>默认地址：<code>http://localhost:3001</code></p>
+
+  <h2>5. 命令行测试</h2>
+  <pre><code>npm run rag:query -- --subject physics_mechanics --task step_solution --question "斜抛运动最大高度公式是什么"</code></pre>
+
+  <h2>常用脚本</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>命令</th>
+        <th>用途</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>npm run dev</code></td>
+        <td>启动开发服务器，默认端口 3001</td>
+      </tr>
+      <tr>
+        <td><code>npm run build</code></td>
+        <td>构建生产版本</td>
+      </tr>
+      <tr>
+        <td><code>npm run lint</code></td>
+        <td>ESLint 检查</td>
+      </tr>
+      <tr>
+        <td><code>npm run typecheck</code></td>
+        <td>TypeScript 类型检查</td>
+      </tr>
+      <tr>
+        <td><code>npm run check</code></td>
+        <td>依次运行 lint、typecheck、build</td>
+      </tr>
+      <tr>
+        <td><code>npm test</code></td>
+        <td>运行单元/API 测试</td>
+      </tr>
+      <tr>
+        <td><code>npm run rag:ingest</code></td>
+        <td>构建知识库索引</td>
+      </tr>
+      <tr>
+        <td><code>npm run rag:build</code></td>
+        <td>构建知识库索引</td>
+      </tr>
+      <tr>
+        <td><code>npm run rag:eval</code></td>
+        <td>运行 RAG 评估</td>
+      </tr>
+      <tr>
+        <td><code>npm run rag:query</code></td>
+        <td>命令行测试 RAG</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Chapter 06：页面入口 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">06 · Navigation</div>
+  <h1>页面入口与导航</h1>
+
+  <p class="lead">
+    主导航包含五个核心入口，旧路由保留兼容并重定向到新地址。
+  </p>
+
+  <h2>主导航</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>页面</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/learn</code></td>
+        <td>学生学习：知识讲解、分步解题、错因诊断</td>
+      </tr>
+      <tr>
+        <td><code>/teach</code></td>
+        <td>教师教学：课堂备课、演示设计、练习生成</td>
+      </tr>
+      <tr>
+        <td><code>/lab</code></td>
+        <td>可视化实验：交互实验生成（斜抛轨迹、圆周运动等）</td>
+      </tr>
+      <tr>
+        <td><code>/knowledge</code></td>
+        <td>知识库健康度：各学科索引状态和覆盖范围</td>
+      </tr>
+      <tr>
+        <td><code>/assets</code></td>
+        <td>教学资产：本地交互库管理</td>
+      </tr>
+      <tr>
+        <td><code>/settings</code></td>
+        <td>模型与 API 设置：OpenAI / Claude 配置</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>兼容路由</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>旧路由</th>
+        <th>重定向到</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/student</code></td>
+        <td><code>/learn</code></td>
+      </tr>
+      <tr>
+        <td><code>/teacher</code></td>
+        <td><code>/teach</code></td>
+      </tr>
+      <tr>
+        <td><code>/visualization</code></td>
+        <td><code>/lab</code></td>
+      </tr>
+      <tr>
+        <td><code>/rag</code></td>
+        <td><code>/learn</code></td>
+      </tr>
+      <tr>
+        <td><code>/interactions</code></td>
+        <td><code>/assets</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>高级入口（不在主导航展示）</h2>
+  <ul>
+    <li><code>/</code> — 标准实验室模式，加载传统 ExperimentConfig</li>
+    <li><code>/deep-interaction</code> — 深度交互生成，通过 Guided Planning 和 Agent pipeline 生成交互组件</li>
+  </ul>
+</section>
+
+<!-- ═════════════ Chapter 07：RAG 工作流 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">07 · RAG Workflow</div>
+  <h1>RAG 工作流</h1>
+
+  <p class="lead">
+    RAG（Retrieval-Augmented Generation）是系统的核心能力，负责从本地知识库检索依据，结合大模型生成可追溯的教学回答。
+  </p>
+
+  <h2>工作流程</h2>
+
+  <div class="callout">
+    <strong>用户提问</strong> → SubjectManager 验证学科并加载 Skill → Retriever 检索本地知识库 chunks
+    → 若本地得分低于阈值且启用网络检索 → WebSearchProvider 补充检索
+    → 构建 citations 和 prompt → OpenAI / Claude 生成最终回答
+    → 返回 answer + sections + citations + visualization_hint
+  </div>
+
+  <h2>任务类型</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>task_type</th>
+        <th>中文名</th>
+        <th>用途</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>knowledge_qa</code></td>
+        <td>知识问答</td>
+        <td>概念解释、公式含义、学习建议</td>
+      </tr>
+      <tr>
+        <td><code>step_solution</code></td>
+        <td>分步解题</td>
+        <td>已知量提取、模型判断、推导、结果和易错点</td>
+      </tr>
+      <tr>
+        <td><code>misconception_diagnosis</code></td>
+        <td>错因诊断</td>
+        <td>分析学生错误答案、纠正思路和巩固练习</td>
+      </tr>
+      <tr>
+        <td><code>teacher_prep</code></td>
+        <td>教师备课</td>
+        <td>教学目标、课堂导入、板书推导和互动提问</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>引用追溯机制</h2>
+  <ul>
+    <li>返回 <code>citations</code>、<code>retrieved_chunks</code>、<code>source_summary</code></li>
+    <li>严格区分本地课程资料和网络补充资料</li>
+    <li>无可靠来源时明确标注"当前知识库和网络检索中未找到可靠依据"</li>
+    <li>不编造文献、页码或课程来源</li>
+  </ul>
+
+  <h2>网络检索配置</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>变量</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>STEMOTION_WEB_SEARCH_PROVIDER=mock</code></td>
+        <td>使用 MockWebSearchProvider，适合测试和演示</td>
+      </tr>
+      <tr>
+        <td><code>STEMOTION_WEB_SEARCH_PROVIDER=custom-json</code></td>
+        <td>使用自定义 JSON 搜索接口</td>
+      </tr>
+      <tr>
+        <td><code>STEMOTION_WEB_SEARCH_ENDPOINT</code></td>
+        <td>自定义搜索 API 地址</td>
+      </tr>
+      <tr>
+        <td><code>STEMOTION_WEB_SEARCH_API_KEY</code></td>
+        <td>自定义搜索 API Key</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Chapter 08：学科 Skill ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">08 · Subject Skills</div>
+  <h1>学科 Skill 体系</h1>
+
+  <p class="lead">
+    每个学科拥有独立的配置文件、系统提示词、回答模板和知识库，实现学科间的完全隔离。
+  </p>
+
+  <h2>已配置学科</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Skill</th>
+        <th>显示名</th>
+        <th>状态</th>
+        <th>源文件数</th>
+        <th>覆盖模块</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>physics_mechanics</code></td>
+        <td>大学物理力学</td>
+        <td>完整 v1</td>
+        <td>17</td>
+        <td>矢量、运动学、牛顿定律、摩擦、圆周运动、功与能、动量、转动、振动、实验、误区、题库、演示</td>
+      </tr>
+      <tr>
+        <td><code>advanced_math</code></td>
+        <td>高等数学</td>
+        <td>轻量 v1</td>
+        <td>9</td>
+        <td>极限、导数、函数图像、积分、级数、微分方程、误区、题库</td>
+      </tr>
+      <tr>
+        <td><code>chemistry</code></td>
+        <td>大学化学</td>
+        <td>轻量 v1</td>
+        <td>9</td>
+        <td>化学平衡、酸碱平衡、弱酸pH、缓冲滴定、热化学、实验安全、误区、题库</td>
+      </tr>
+      <tr>
+        <td><code>computer_science</code></td>
+        <td>程序设计与数据结构</td>
+        <td>轻量 v1</td>
+        <td>9</td>
+        <td>栈队列、表达式求值、递归分治、图算法、最短路径、复杂度、常见Bug、题库</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Skill 配置结构</h2>
+
+  <pre><code>skills/
+├── physics_mechanics/
+│   ├── skill.yaml              # 学科配置
+│   ├── system_prompt.md        # 系统提示词
+│   ├── answer_template.md      # 回答模板
+│   └── knowledge_base/
+│       ├── config/rag.config.json
+│       ├── sources/*.md        # 源文档
+│       ├── processed/chunks.jsonl
+│       └── index/keyword.json + vector.json</code></pre>
+
+  <h2>skill.yaml 示例</h2>
+
+  <pre><code>name: physics_mechanics
+display_name: 大学物理力学
+description: 面向大学物理力学的学科 Skill
+default_language: zh-CN
+knowledge_base_path: knowledge_base
+system_prompt_path: system_prompt.md
+answer_template_path: answer_template.md
+retrieval:
+  top_k: 4
+  score_threshold: 0.18
+  enable_web_search: true
+  web_top_k: 3
+tools:
+  - formula_reasoning
+  - unit_check
+  - visualization_parameters
+answer_requirements:
+  - 分步推导
+  - 物理量定义
+  - 公式适用条件
+  - 单位检查
+  - 引用来源</code></pre>
+
+  <h2>添加新学科</h2>
+  <ol>
+    <li>复制任一现有学科目录</li>
+    <li>修改 <code>skill.yaml</code>、<code>system_prompt.md</code>、<code>answer_template.md</code></li>
+    <li>将文档放入对应 <code>knowledge_base/sources/</code></li>
+    <li>运行 <code>npm run rag:ingest -- --subject your_subject_name</code></li>
+  </ol>
+</section>
+
+<!-- ═════════════ Chapter 09：API 接口 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">09 · API Reference</div>
+  <h1>API 接口</h1>
+
+  <p class="lead">
+    系统提供版本化 REST API，<code>/api/v1/*</code> 为正式接口，旧版 <code>/api/*</code> 保留兼容。
+  </p>
+
+  <h2>学科与 RAG</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>方法</th>
+        <th>路径</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/v1/subjects</code></td>
+        <td>获取可用学科 Skill、知识库状态、工具和回答规范</td>
+      </tr>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/v1/subjects/default</code></td>
+        <td>获取默认学科</td>
+      </tr>
+      <tr>
+        <td><code>PATCH</code></td>
+        <td><code>/api/v1/subjects/default</code></td>
+        <td>设置默认学科</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/rag/ask</code></td>
+        <td>执行学科 RAG 问答，返回结构化回答、引用来源、证据包、复核报告和可视化提示</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>模型配置</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>方法</th>
+        <th>路径</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td><code>/api/v1/model-profiles</code></td>
+        <td>读取脱敏后的模型 profile 摘要</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/model-profiles</code></td>
+        <td>新建或更新模型 profile</td>
+      </tr>
+      <tr>
+        <td><code>PATCH</code></td>
+        <td><code>/api/v1/model-profiles</code></td>
+        <td>切换当前 active profile</td>
+      </tr>
+      <tr>
+        <td><code>DELETE</code></td>
+        <td><code>/api/v1/model-profiles/{id}</code></td>
+        <td>删除模型 profile</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/model-profiles/models</code></td>
+        <td>获取 OpenAI 或 Claude 模型列表</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>深度交互生成</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>方法</th>
+        <th>路径</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/generate</code></td>
+        <td>标准实验室一次性生成</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/deep-interaction/planning</code></td>
+        <td>深度交互生成前的澄清与教师计划</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/deep-interaction/generate</code></td>
+        <td>深度交互 SSE 生成</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td><code>/api/v1/deep-interaction/follow-up</code></td>
+        <td>基于当前 HTML 的追问修改</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>RAG 请求示例</h2>
+
+  <pre><code>{
+  "question": "一个小球以20m/s初速度、30度角斜抛，求最大高度和射程",
+  "subjectId": "physics_mechanics",
+  "taskType": "step_solution",
+  "retrieval": { "useWebSearch": true },
+  "quality": { "mode": "highQuality" }
+}</code></pre>
+</section>
+
+<!-- ═════════════ Chapter 10：测试与验收 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">10 · Testing</div>
+  <h1>测试与验收</h1>
+
+  <p class="lead">
+    系统包含 38 个测试文件，覆盖 RAG 管线、API 契约、可视化、架构边界等多个维度。
+  </p>
+
+  <h2>测试矩阵</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>测试类别</th>
+        <th>覆盖内容</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>RAG 管线</td>
+        <td>test_rag_pipeline、test_rag_hybrid_retrieval、test_rag_answer_protocol、test_rag_session_store、test_rag_mode_configs、test_rag_multi_agent、test_rag_judge_agent、test_rag_quality_review</td>
+      </tr>
+      <tr>
+        <td>RAG 可视化</td>
+        <td>7 个可视化测试：flow、layout、orchestrator、planning agent、audit pipeline、artifact adapter、brief</td>
+      </tr>
+      <tr>
+        <td>API 契约</td>
+        <td>test_api_v1_contracts、test_prompt_contracts、test_static_route_contract、test_route_compatibility</td>
+      </tr>
+      <tr>
+        <td>渲染与内容</td>
+        <td>test_math_render、test_markdown_lite、test_citation、test_citation_refs、test_formula_pipeline</td>
+      </tr>
+      <tr>
+        <td>功能模块</td>
+        <td>test_model_profiles、test_subject_manager、test_knowledge_health、test_interaction_persistence、test_presentation_review</td>
+      </tr>
+      <tr>
+        <td>架构边界</td>
+        <td>test_architecture_boundaries、test_visualization_decision、test_visualization_html_generator、test_visualization_quality、test_visualization_safe_expression、test_visualization_spec、test_web_search</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>推荐验收流程</h2>
+
+  <pre><code>npm test
+npm run test:static-smoke
+npm run lint
+npm run typecheck
+npm run build
+npm run check</code></pre>
+
+  <h2>重点验收场景</h2>
+
+  <ol>
+    <li><code>/settings</code> 可以新增 OpenAI / Claude profile，获取模型列表并切换 active profile</li>
+    <li><code>/learn</code> 默认学科为大学物理力学，旧路由 <code>/student</code>、<code>/rag</code> 会重定向到 <code>/learn</code></li>
+    <li>斜抛运动问题能返回结构化分步解题、引用来源和 <code>visualization_hint</code></li>
+    <li>无可靠来源时，仍由模型回答，但明确提示依据不足，不伪造 citations</li>
+    <li>切换到其他学科时，检索不会混用其他学科知识库</li>
+    <li>模型配置错误时，RAG API 返回明确错误，前端不展示检索片段拼接成的假回答</li>
+    <li>典型案例 demo fallback 只用于演示兜底，并明确标注"演示样例结果"</li>
+  </ol>
+</section>
+
+</body>
+</html>

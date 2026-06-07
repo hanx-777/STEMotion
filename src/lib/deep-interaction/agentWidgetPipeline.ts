@@ -1,4 +1,5 @@
 import { generateWithConfiguredModel, LlmTruncationError } from '@/lib/generation/llmClient';
+import { artifactDesignContractPrompt } from '@/lib/generation/artifactDesignContract';
 import { parseJsonResponse } from '@/lib/generation/jsonParser';
 import {
   assertSafeInteractiveHtml,
@@ -556,7 +557,7 @@ JSON shape:
         { role: 'user', content: prompt },
       ],
       temperature: 0.12,
-      maxTokens: 131072,
+      requestPreset: 'planning',
     }),
     300000,
   );
@@ -602,8 +603,7 @@ ${formatBlueprintForPrompt(blueprint)}
           { role: 'user', content: user },
         ],
         temperature: 0.24,
-        maxTokens: 32768,
-        stream: true,
+        requestPreset: 'artifact',
       }),
       900000,
     );
@@ -710,6 +710,12 @@ Rules:
 - No remote resources, fetch, XMLHttpRequest, WebSocket, EventSource, import(), storage APIs, cookies, eval, or nested iframes.
 - Include widget-config, requestAnimationFrame, start/reset controls, and message handlers for SET_WIDGET_STATE, HIGHLIGHT_ELEMENT, ANNOTATE_ELEMENT, REVEAL_ELEMENT.
 - The widget must be fully functional with complete interactive JavaScript.
+${artifactDesignContractPrompt({
+  medium: 'repaired self-contained Deep Interaction widget',
+  mainStage: 'main simulation/game/diagram/visualization stage',
+  supportPanel: 'explanation/sidebar/control support areas',
+  supportingContent: 'variables, learning goals, plans, formulas, quiz, and long explanations',
+})}
 ${blueprint ? formatBlueprintForPrompt(blueprint) : ''}
 ${diagnosticSection}`,
         },
@@ -719,8 +725,7 @@ ${diagnosticSection}`,
         },
       ],
       temperature: 0.1,
-      maxTokens: 32768,
-      stream: true,
+      requestPreset: 'repair',
     }),
     900000,
   );
@@ -769,8 +774,7 @@ Rules:
           },
         ],
         temperature: 0.16,
-        maxTokens: 32768,
-        stream: true,
+        requestPreset: 'teacherActions',
       }),
       300000,
     );
@@ -859,7 +863,14 @@ Global rules:
 
 `;
   const template = loadWidgetSystemPrompt(plan.interactionType);
-  return preamble + template;
+  return `${preamble}${template}
+
+${artifactDesignContractPrompt({
+  medium: `${plan.interactionType} Deep Interaction widget`,
+  mainStage: 'main simulation/game/diagram/visualization stage',
+  supportPanel: 'explanation/sidebar/control support areas',
+  supportingContent: 'variables, learning goals, formulas, plans, quiz, and long explanations',
+})}`;
 }
 
 function createFallbackPlan(

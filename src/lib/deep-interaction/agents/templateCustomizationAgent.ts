@@ -40,7 +40,7 @@ export async function runTemplateCustomizationAgent(
           { role: 'user', content: buildUserPrompt(input) },
         ],
         temperature: 0.15,
-        maxTokens: 131072,
+        requestPreset: 'artifact',
       }),
       900000,
     );

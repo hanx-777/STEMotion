@@ -1,5 +1,9 @@
 import { createLogger } from '@/lib/logger';
 import type { AgentEvaluation, AgentIssue, FeedbackIteration, JudgeDecision } from '../types';
+import {
+  buildDesignRepairInstruction,
+  collectDesignQualityBlockers,
+} from './designReviewRubric';
 
 const log = createLogger('judge');
 
@@ -8,6 +12,7 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
   const criticalIssues = allIssues.filter((i) => i.severity === 'critical');
   const highIssues = allIssues.filter((i) => i.severity === 'high');
   const blockingIssues = [...criticalIssues, ...highIssues];
+  const designBlockingIssues = collectDesignQualityBlockers(allIssues);
 
   const avgScore = evaluations.length > 0
     ? Math.round(evaluations.reduce((sum, e) => sum + e.score, 0) / evaluations.length)
@@ -43,7 +48,21 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
     return decision;
   }
 
-  // Rule 3: Critical issues → repair
+  // Rule 3: Serious design-quality blockers → repair html
+  if (designBlockingIssues.length > 0) {
+    const decision: JudgeDecision = {
+      type: 'repair',
+      finalScore: avgScore,
+      blockingIssues: designBlockingIssues,
+      repairInstruction: buildDesignRepairInstruction(designBlockingIssues),
+      target: 'html',
+      reason: `发现 ${designBlockingIssues.length} 个会影响首屏、主舞台、响应式、滚动或交互可用性的设计质量阻断问题。`,
+    };
+    log.info('Judge: design-quality blockers', { score: avgScore, designBlockers: designBlockingIssues.length });
+    return decision;
+  }
+
+  // Rule 4: Critical issues → repair
   if (criticalIssues.length > 0) {
     const target = detectRepairTarget(criticalIssues, evaluations);
     const decision: JudgeDecision = {
@@ -58,7 +77,7 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
     return decision;
   }
 
-  // Rule 4: Check improvement stagnation
+  // Rule 5: Check improvement stagnation
   if (prevIteration) {
     const prevScore = prevIteration.scoreAfter ?? 0;
     const improvement = avgScore - prevScore;
@@ -74,7 +93,27 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
     }
   }
 
-  // Rule 5: Score >= 85 and no high/critical → accept
+  const pedagogyEval = evaluations.find((e) => e.agentName === 'Pedagogy Evaluator');
+  const uxEval = evaluations.find((e) => e.agentName === 'UX Evaluator');
+
+  // Rule 6: Low UX score means design quality needs HTML repair even if the average is high
+  if (uxEval && uxEval.score < 75) {
+    const decision: JudgeDecision = {
+      type: 'repair',
+      finalScore: avgScore,
+      blockingIssues,
+      repairInstruction: buildDesignRepairInstruction(
+        uxEval.issues,
+        'UX score is below 75; repair the HTML for first-screen usability, main-stage priority, responsive behavior, scroll discipline, visual hierarchy, control density, hit targets, interaction feedback, and anti-filler quality.',
+      ),
+      target: 'html',
+      reason: `UX 评分 ${uxEval.score}/100，设计质量低于通过阈值。`,
+    };
+    log.info('Judge: low UX score', { score: avgScore, uxScore: uxEval.score });
+    return decision;
+  }
+
+  // Rule 7: Score >= 85 and no high/critical → accept
   if (avgScore >= 85 && highIssues.length === 0) {
     const decision: JudgeDecision = {
       type: 'accept',
@@ -86,10 +125,7 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
     return decision;
   }
 
-  // Rule 6: Determine repair target
-  const pedagogyEval = evaluations.find((e) => e.agentName === 'Pedagogy Evaluator');
-  const uxEval = evaluations.find((e) => e.agentName === 'UX Evaluator');
-
+  // Rule 8: Determine repair target
   let target: JudgeDecision['target'] = 'html';
   let instruction = '';
 
@@ -98,7 +134,10 @@ export function judgeEvaluations(evaluations: AgentEvaluation[], prevIteration?:
     instruction = '教学评估分数较低，需要改进教师讲解和学生任务设计。';
   } else if (uxEval && uxEval.score < 75) {
     target = 'html';
-    instruction = '交互体验分数较低，需要改进 UI 布局和交互反馈。';
+    instruction = buildDesignRepairInstruction(
+      uxEval.issues,
+      'UX score is below 75; repair the HTML for first-screen usability, main-stage priority, responsive behavior, scroll discipline, visual hierarchy, control density, hit targets, interaction feedback, and anti-filler quality.',
+    );
   } else if (highIssues.length > 0) {
     target = detectRepairTarget(highIssues, evaluations);
     instruction = `存在 ${highIssues.length} 个高风险问题需要修复。`;

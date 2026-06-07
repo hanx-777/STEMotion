@@ -40,10 +40,13 @@ export interface RagSessionSnapshot {
   now?: string;
 }
 
+export type RagSessionSaveMode = 'auto' | 'update-current' | 'new-session';
+export type RagSessionSaveIntent = 'update-current' | 'new-session' | 'needs-confirmation';
+
 interface RagSessionState {
   sessions: RagSessionRecord[];
   currentSessionId: string | null;
-  saveSession: (snapshot: RagSessionSnapshot) => string;
+  saveSession: (snapshot: RagSessionSnapshot, options?: { mode?: RagSessionSaveMode }) => string;
   selectSession: (sessionId: string | null) => void;
   deleteSession: (sessionId: string) => void;
   clearSessions: () => void;
@@ -57,8 +60,16 @@ export const useRagSessionStore = create<RagSessionState>()(
       sessions: [],
       currentSessionId: null,
 
-      saveSession: (snapshot) => {
-        const id = snapshot.id ?? get().currentSessionId ?? makeId('rag_session');
+      saveSession: (snapshot, options) => {
+        const state = get();
+        const id = snapshot.id ?? resolveRagSaveSessionId({
+          sessions: state.sessions,
+          currentSessionId: state.currentSessionId,
+          question: snapshot.question,
+          subject: snapshot.subject,
+          taskType: snapshot.taskType,
+          mode: options?.mode ?? 'auto',
+        }) ?? makeId('rag_session');
         set((state) => ({
           sessions: upsertRagSessionRecord(state.sessions, { ...snapshot, id }),
           currentSessionId: id,
@@ -133,6 +144,89 @@ export function clearRagSessionRecords(): RagSessionRecord[] {
   return [];
 }
 
+export function resolveRagAutoSaveSessionId({
+  sessions,
+  currentSessionId,
+  question,
+  subject,
+  taskType,
+}: {
+  sessions: RagSessionRecord[];
+  currentSessionId: string | null;
+  question: string;
+  subject: string;
+  taskType: RagTaskType;
+}): string | undefined {
+  return resolveRagSaveSessionId({
+    sessions,
+    currentSessionId,
+    question,
+    subject,
+    taskType,
+    mode: 'auto',
+  });
+}
+
+export function classifyRagSessionSaveIntent({
+  sessions,
+  currentSessionId,
+  question,
+  subject,
+  taskType,
+}: {
+  sessions: RagSessionRecord[];
+  currentSessionId: string | null;
+  question: string;
+  subject: string;
+  taskType: RagTaskType;
+}): RagSessionSaveIntent {
+  if (!currentSessionId) return 'new-session';
+  const currentSession = sessions.find((session) => session.id === currentSessionId);
+  if (!currentSession) return 'new-session';
+  if (currentSession.subject !== subject) return 'new-session';
+  if (currentSession.taskType !== taskType) return 'new-session';
+
+  const previousQuestion = normalizeSessionQuestion(currentSession.question);
+  const nextQuestion = normalizeSessionQuestion(question);
+  if (previousQuestion === nextQuestion) return 'update-current';
+
+  const similarity = calculateQuestionSimilarity(previousQuestion, nextQuestion);
+  if (similarity >= 0.86) return 'update-current';
+  if (similarity <= 0.45) return 'new-session';
+  return 'needs-confirmation';
+}
+
+export function resolveRagSaveSessionId({
+  sessions,
+  currentSessionId,
+  question,
+  subject,
+  taskType,
+  mode,
+}: {
+  sessions: RagSessionRecord[];
+  currentSessionId: string | null;
+  question: string;
+  subject: string;
+  taskType: RagTaskType;
+  mode: RagSessionSaveMode;
+}): string | undefined {
+  if (!currentSessionId) return undefined;
+  const currentSession = sessions.find((session) => session.id === currentSessionId);
+  if (!currentSession) return undefined;
+  if (mode === 'new-session') return undefined;
+  if (mode === 'update-current') return currentSession.id;
+  return classifyRagSessionSaveIntent({
+    sessions,
+    currentSessionId,
+    question,
+    subject,
+    taskType,
+  }) === 'update-current'
+    ? currentSession.id
+    : undefined;
+}
+
 export function renameRagSessionRecord(
   sessions: RagSessionRecord[],
   sessionId: string,
@@ -151,4 +245,44 @@ export function normalizeSessionTitle(value: string): string {
   const title = value.replace(/\s+/g, ' ').trim();
   if (!title) return '未命名学科问答';
   return title.length > 28 ? `${title.slice(0, 28)}...` : title;
+}
+
+function normalizeSessionQuestion(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[，。！？；：、,.!?;:()[\]{}'"“”‘’《》<>【】\-_/\\|]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function calculateQuestionSimilarity(previousQuestion: string, nextQuestion: string): number {
+  if (!previousQuestion || !nextQuestion) return 0;
+  if (previousQuestion === nextQuestion) return 1;
+  const previousTokens = tokenizeQuestion(previousQuestion);
+  const nextTokens = tokenizeQuestion(nextQuestion);
+  if (previousTokens.length === 0 || nextTokens.length === 0) return 0;
+
+  const nextCounts = new Map<string, number>();
+  for (const token of nextTokens) {
+    nextCounts.set(token, (nextCounts.get(token) ?? 0) + 1);
+  }
+
+  let overlap = 0;
+  for (const token of previousTokens) {
+    const count = nextCounts.get(token) ?? 0;
+    if (count > 0) {
+      overlap += 1;
+      if (count === 1) nextCounts.delete(token);
+      else nextCounts.set(token, count - 1);
+    }
+  }
+
+  return (2 * overlap) / (previousTokens.length + nextTokens.length);
+}
+
+function tokenizeQuestion(value: string): string[] {
+  if (/[\u4e00-\u9fff]/.test(value)) {
+    return Array.from(value.replace(/\s+/g, ''));
+  }
+  return value.split(/\s+/).filter(Boolean);
 }

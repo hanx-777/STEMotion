@@ -78,8 +78,7 @@ function createReviewerOptions(systemPrompt: string, userPrompt: string): LlmGen
       { role: 'user', content: userPrompt },
     ],
     temperature: 0,
-    maxTokens: 8192,
-    stream: false,
+    requestPreset: 'reviewer',
   };
 }
 

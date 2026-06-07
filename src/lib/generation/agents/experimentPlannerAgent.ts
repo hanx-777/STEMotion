@@ -19,7 +19,7 @@ export async function runExperimentPlannerAgent(prompt: string): Promise<Experim
           { role: 'user', content: prompt },
         ],
         temperature: 0.2,
-        maxTokens: 131072,
+        requestPreset: 'planning',
       }),
       18000,
     );
@@ -44,7 +44,7 @@ export async function runExperimentPlannerAgent(prompt: string): Promise<Experim
           },
         ],
         temperature: 0.1,
-        maxTokens: 131072,
+        requestPreset: 'planning',
       }),
       8000,
     ).catch((e) => {

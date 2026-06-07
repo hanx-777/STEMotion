@@ -7,6 +7,10 @@ import { formatRagWidgetContractForPrompt } from '@/lib/rag/visualization/widget
 import { createLogger } from '@/lib/logger';
 import type { InteractionAction } from '../actions/actionTypes';
 import type { AgentIssue, JudgeDecision, LearningBlueprint, SchemaValidationSummary } from '../types';
+import {
+  buildDesignRepairInstruction,
+  designRepairPrompt,
+} from './designReviewRubric';
 import { formatBlueprintForPrompt } from './learningDesignAgent';
 
 const log = createLogger('repair');
@@ -88,7 +92,10 @@ export async function repairArtifact(ctx: RepairContext): Promise<RepairResult> 
 async function repairHtml(ctx: RepairContext): Promise<string | null> {
   const issuesDescription = ctx.issues
     .filter((i) => i.target === 'html' || i.target === undefined)
-    .map((i) => `- [${i.severity}] ${i.message}（建议：${i.suggestion}）`)
+    .map((i) => {
+      const evidence = i.evidence ? `；证据：${i.evidence}` : '';
+      return `- [${i.severity}] target=${i.target ?? 'html'} ${i.message}${evidence}（建议：${i.suggestion}）`;
+    })
     .join('\n');
 
   const diagnosticInfo = ctx.diagnostic
@@ -113,6 +120,7 @@ async function repairHtml(ctx: RepairContext): Promise<string | null> {
   const schemaValidationSection = ctx.schemaValidation
     ? `\n\n## Subject Schema 校验摘要\n通过：${ctx.schemaValidation.passed ? '是' : '否'}\nSchema：${ctx.schemaValidation.schemaKey ?? '未匹配'}\nViolations：\n${ctx.schemaValidation.violations.map((item) => `- ${item}`).join('\n') || '- 无'}\nWarnings：\n${ctx.schemaValidation.warnings.map((item) => `- ${item}`).join('\n') || '- 无'}`
     : '';
+  const designRepairSection = buildDesignRepairInstruction(ctx.issues);
 
   const raw = await withTimeout(
     generateWithConfiguredModel({
@@ -140,6 +148,7 @@ async function repairHtml(ctx: RepairContext): Promise<string | null> {
 - 禁止 fetch、WebSocket、XMLHttpRequest、EventSource、storage API、cookie、eval、动态 import、外部资源和嵌套 iframe。
 
 LearningBlueprint 存在时，修复后必须继续满足 expectedInsight、must 级知识约束和 coreVariables；不要删除核心变量控件或观察结果。
+${designRepairPrompt()}
 ${interactivityInstructions}`,
         },
         {
@@ -149,6 +158,9 @@ ${issuesDescription || '根据评审意见改进组件质量。'}
 
 ## 修复指令
 ${ctx.decision.repairInstruction ?? '改进整体质量。'}
+
+## Design-quality 修复约束
+${designRepairSection}
 ${diagnosticInfo}
 ${contractDiagnosticInfo}
 ${blueprintSection}
@@ -159,8 +171,7 @@ ${ctx.html}`,
         },
       ],
       temperature: 0.1,
-      maxTokens: 131072,
-      stream: false,
+      requestPreset: 'repair',
     }),
     120000,
   );
@@ -220,8 +231,7 @@ ${JSON.stringify(ctx.actions, null, 2).slice(0, 3000)}`,
         },
       ],
       temperature: 0.1,
-      maxTokens: 8000,
-      stream: false,
+      requestPreset: 'teacherActions',
     }),
     60000,
   );

@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
 import {
   AlertTriangle,
@@ -13,15 +14,30 @@ import {
   FileText,
   History,
   Loader2,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   X,
 } from 'lucide-react';
 import { askRagFromBrowser } from '@/features/rag/client/ragClient';
 import { attributeAskError } from '@/features/rag/state/ragAskErrorAttribution';
-import { useRagSessionStore, type RagSessionRecord } from '@/features/rag/state/ragSessionStore';
+import {
+  classifyRagSessionSaveIntent,
+  useRagSessionStore,
+  type RagSessionRecord,
+  type RagSessionSaveMode,
+} from '@/features/rag/state/ragSessionStore';
+import {
+  buildRagPlanningDraft,
+  composeRagQuestionWithPlanningAnswers,
+  type RagPlanningDraft,
+} from '@/features/rag/state/ragPlanningMode';
 import {
   completeRagVisualizationFailure,
   completeRagVisualizationSuccess,
@@ -45,10 +61,16 @@ import { getSubjectModeConfig, type RagMode } from '@/lib/rag/modeConfigs';
 import { createRagStages } from '@/lib/progress/progressStages';
 import type { ProgressModel, ProgressStatus as ProgressStageStatus } from '@/lib/progress/progressTypes';
 import RealisticProgressPanel from '@/components/progress/RealisticProgressPanel';
+import ModelProfileSwitcher from '@/components/layout/ModelProfileSwitcher';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
 import { SaveToInteractionsButton } from './SaveToInteractionsButton';
 import { useToast } from '@/lib/stores/toastStore';
+import {
+  RAG_TO_LAB_PREFILL_KEY,
+  RAG_TO_LAB_ROUTE,
+  buildLabPromptFromRagResult,
+} from '@/features/rag-lab-bridge/buildLabPrompt';
 
 type TaskType = RagTaskType;
 
@@ -163,10 +185,20 @@ interface RagResult {
 }
 
 type TaskGroupId = 'student' | 'teacher' | 'visualization';
+type ForcedRagSessionSaveMode = Exclude<RagSessionSaveMode, 'auto'>;
+
+interface PendingSessionSaveConfirmation {
+  sessionId: string;
+  title: string;
+  question: string;
+  subject: string;
+  taskType: TaskType;
+}
 
 
 export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode }) {
   const toast = useToast();
+  const router = useRouter();
   const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
   const [subject, setSubject] = useState('physics_mechanics');
   const modeConfig = useMemo(() => getSubjectModeConfig(mode, subject), [mode, subject]);
@@ -180,6 +212,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   const [progressModel, setProgressModel] = useState<ProgressModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RagResult | null>(null);
+  const [labBridgeMessage, setLabBridgeMessage] = useState<string | null>(null);
   const [visualizationGeneration, setVisualizationGeneration] = useState<RagVisualizationGenerationUiState>(idleVisualizationState);
   const [generatedVisualizationArtifact, setGeneratedVisualizationArtifact] = useState<InteractionArtifact | null>(null);
   const [activeDemoId, setActiveDemoId] = useState<string | null>(null);
@@ -188,6 +221,16 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   const [highlightedSourceKey, setHighlightedSourceKey] = useState<string | null>(null);
   const [activeSubId, setActiveSubId] = useState<string>(modeConfig.defaultSubId);
   const [sessionCollapsed, setSessionCollapsed] = useState(true);
+  const [advancedControlsOpen, setAdvancedControlsOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [composerExpanded, setComposerExpanded] = useState(false);
+  const [composerVisible, setComposerVisible] = useState(true);
+  const [planningModeEnabled, setPlanningModeEnabled] = useState(false);
+  const [pendingRagPlan, setPendingRagPlan] = useState<RagPlanningDraft | null>(null);
+  const [ragPlanningAnswers, setRagPlanningAnswers] = useState<Record<string, string>>({});
+  const [confirmedPlanningQuestion, setConfirmedPlanningQuestion] = useState<string | null>(null);
+  const [pendingSessionSaveConfirmation, setPendingSessionSaveConfirmation] =
+    useState<PendingSessionSaveConfirmation | null>(null);
   const heroMotionRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-rag-hero-motion]',
     stagger: stemotionMotion.stagger.item,
@@ -253,6 +296,33 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     return grouped;
   }, []);
   const showExampleCards = modeConfig.examplesDisplayMode === 'cards';
+  const currentSession = useMemo(
+    () => sessions.find((session) => session.id === currentSessionId) ?? null,
+    [currentSessionId, sessions],
+  );
+  const sessionSaveIntent = useMemo(
+    () => classifyRagSessionSaveIntent({
+      sessions,
+      currentSessionId,
+      question,
+      subject,
+      taskType,
+    }),
+    [currentSessionId, question, sessions, subject, taskType],
+  );
+  const sessionSaveIntentLabel = currentSession && sessionSaveIntent === 'update-current'
+    ? `将更新：${currentSession.title}`
+    : currentSession && sessionSaveIntent === 'needs-confirmation'
+      ? `提交前确认：更新「${currentSession.title}」或保存为新会话`
+      : '将保存为新会话';
+  const activeSessionSaveQuestion = confirmedPlanningQuestion ?? question;
+  const visiblePendingSessionSaveConfirmation = pendingSessionSaveConfirmation &&
+    pendingSessionSaveConfirmation.sessionId === currentSessionId &&
+    pendingSessionSaveConfirmation.question === activeSessionSaveQuestion &&
+    pendingSessionSaveConfirmation.subject === subject &&
+    pendingSessionSaveConfirmation.taskType === taskType
+    ? pendingSessionSaveConfirmation
+    : null;
   const localCitations = result?.citations.filter((citation) => citation.source_type === 'local') ?? [];
   const webCitations = result?.citations.filter((citation) => citation.source_type === 'web') ?? [];
   const lowLocalMatch = result
@@ -268,6 +338,19 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     || visualizationGeneration.status === 'generating'
     || visualizationGeneration.status === 'error'
     || hasManualVisualizationHint;
+  const canBridgeToLab = Boolean(result?.answer?.trim() && !asking);
+  const labBridgePrompt = useMemo(() => {
+    if (!result?.answer?.trim()) return '';
+    return buildLabPromptFromRagResult({
+      mode: mode === 'teacher' ? 'teacher' : 'student',
+      subject: result.subject || subject,
+      subjectDisplayName: result.subject_display_name || activeSubject?.display_name,
+      question,
+      answer: result.answer,
+      citations: result.citations,
+      sources: result.retrieved_chunks,
+    });
+  }, [activeSubject?.display_name, mode, question, result, subject]);
 
   const updateStage = (stageId: string, status: ProgressStageStatus, detail?: string) => {
     setProgressModel((prev) => {
@@ -387,6 +470,19 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     });
   };
 
+  const bridgeAnswerToLab = () => {
+    if (!canBridgeToLab || !labBridgePrompt) return;
+    try {
+      window.sessionStorage.setItem(RAG_TO_LAB_PREFILL_KEY, labBridgePrompt);
+      setLabBridgeMessage(null);
+      router.push(RAG_TO_LAB_ROUTE);
+    } catch {
+      const message = '当前浏览器无法写入本地预填 prompt，请复制回答摘要后在 Lab 中粘贴。';
+      setLabBridgeMessage(message);
+      toast.warning(message, 4200);
+    }
+  };
+
   const handleRagVisualizationEvent = (
     event: DeepInteractionStreamEvent,
     ragResult: RagResult,
@@ -485,14 +581,105 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     }
   };
 
-  const ask = async () => {
-    if (!question.trim()) {
+  const resetPlanningState = () => {
+    setPendingRagPlan(null);
+    setRagPlanningAnswers({});
+    setConfirmedPlanningQuestion(null);
+  };
+
+  const requestRagPlanBeforeAsk = () => {
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
       setError('请输入问题');
       return;
     }
 
+    const draft = buildRagPlanningDraft({
+      question: trimmedQuestion,
+      subject,
+      subjectDisplayName: activeSubject?.display_name,
+      taskType,
+      taskLabel: activeTask.label,
+      mode,
+      useWebSearch,
+      fastMode,
+      visualizationMode,
+    });
+
+    setPendingSessionSaveConfirmation(null);
+    setConfirmedPlanningQuestion(null);
+    setPendingRagPlan(draft);
+    setRagPlanningAnswers(
+      Object.fromEntries(draft.questions.map((item) => [item.id, item.defaultValue ?? ''])),
+    );
+    setComposerVisible(true);
+    setComposerExpanded(true);
+    setError(null);
+    toast.success('规划已生成，请确认后开始问答。', 2600);
+  };
+
+  const resolveSessionSaveModeForSubmit = (
+    override?: ForcedRagSessionSaveMode,
+    submitQuestion = question,
+  ): ForcedRagSessionSaveMode | null => {
+    if (override) {
+      setPendingSessionSaveConfirmation(null);
+      return override;
+    }
+
+    const submitIntent = submitQuestion === question
+      ? sessionSaveIntent
+      : classifyRagSessionSaveIntent({
+          sessions,
+          currentSessionId,
+          question: submitQuestion,
+          subject,
+          taskType,
+        });
+
+    if (submitIntent === 'needs-confirmation' && currentSession) {
+      setPendingSessionSaveConfirmation({
+        sessionId: currentSession.id,
+        title: currentSession.title,
+        question: submitQuestion,
+        subject,
+        taskType,
+      });
+      setComposerVisible(true);
+      return null;
+    }
+
+    setPendingSessionSaveConfirmation(null);
+    return submitIntent === 'update-current' ? 'update-current' : 'new-session';
+  };
+
+  const ask = async (
+    saveModeOverride?: ForcedRagSessionSaveMode,
+    options: { skipPlanning?: boolean; plannedQuestion?: string } = {},
+  ) => {
+    const submitQuestion = (options.plannedQuestion ?? confirmedPlanningQuestion ?? question).trim();
+    if (!submitQuestion) {
+      setError('请输入问题');
+      return;
+    }
+
+    if (planningModeEnabled && !options.skipPlanning && !saveModeOverride) {
+      requestRagPlanBeforeAsk();
+      return;
+    }
+
+    const sessionSaveMode = resolveSessionSaveModeForSubmit(saveModeOverride, submitQuestion);
+    if (!sessionSaveMode) return;
+
+    resetPlanningState();
+    if (submitQuestion !== question.trim()) {
+      userEditedRef.current = true;
+      setQuestion(submitQuestion);
+    }
+
     setAsking(true);
     setError(null);
+    setLabBridgeMessage(null);
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
 
@@ -506,7 +693,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
 
     try {
       const data = await askRagFromBrowser({
-        question,
+        question: submitQuestion,
         subjectId: subject,
         taskType,
         retrieval: { useWebSearch },
@@ -582,19 +769,19 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
       toast.success(
         shouldGenerateVisualization
           ? '回答已自动保存，正在生成互动可视化。'
-          : '回答已自动保存到本地学习会话。',
+          : sessionSaveMode === 'update-current' ? '当前本地学习会话已更新。' : '回答已自动保存到本地学习会话。',
         4000,
       );
       const sessionId = saveSession({
-        question,
+        question: submitQuestion,
         subject,
         taskType,
         useWebSearch,
         result: resultToSave,
-      });
+      }, { mode: sessionSaveMode });
       if (shouldGenerateVisualization) {
         void startVisualizationGeneration(resultToSave, sessionId, {
-          question,
+          question: submitQuestion,
           subject,
           taskType,
           useWebSearch,
@@ -637,13 +824,13 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
         setGeneratedVisualizationArtifact(null);
         setVisualizationGeneration(idleVisualizationState());
         saveSession({
-          question,
+          question: submitQuestion,
           subject,
           taskType,
           useWebSearch,
           result: fallback,
           demoFallback: true,
-        });
+        }, { mode: sessionSaveMode });
         setError('RAG 请求失败，已切换为演示样例结果。');
       } else {
         setError(message);
@@ -653,8 +840,21 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     }
   };
 
+  const confirmRagPlanAndAsk = () => {
+    if (!pendingRagPlan) return;
+    const plannedQuestion = composeRagQuestionWithPlanningAnswers(
+      pendingRagPlan.question,
+      pendingRagPlan,
+      ragPlanningAnswers,
+    );
+    setConfirmedPlanningQuestion(plannedQuestion);
+    void ask(undefined, { skipPlanning: true, plannedQuestion });
+  };
+
   const startNewSession = () => {
     selectSession(null);
+    setPendingSessionSaveConfirmation(null);
+    resetPlanningState();
     setActiveDemoId(null);
     userEditedRef.current = false;
     setQuestion('');
@@ -662,10 +862,13 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
     setError(null);
+    setLabBridgeMessage(null);
   };
 
   const restoreSession = (session: RagSessionRecord) => {
     selectSession(session.id);
+    setPendingSessionSaveConfirmation(null);
+    resetPlanningState();
     setSubject(session.subject);
     setTaskType(session.taskType);
     setQuestion(session.question);
@@ -677,6 +880,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     );
     setActiveDemoId(null);
     setError(null);
+    setLabBridgeMessage(null);
     const matchedTask = modeConfig.tasks.find((t) => t.taskType === session.taskType);
     if (matchedTask) setActiveSubId(matchedTask.subId);
   };
@@ -688,6 +892,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
 
   const deleteSession = (session: RagSessionRecord) => {
     deleteStoredSession(session.id);
+    setPendingSessionSaveConfirmation(null);
+    resetPlanningState();
     if (currentSessionId === session.id) {
       setResult(null);
       setGeneratedVisualizationArtifact(null);
@@ -698,6 +904,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
 
   const clearSessions = () => {
     clearStoredSessions();
+    setPendingSessionSaveConfirmation(null);
+    resetPlanningState();
     setResult(null);
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
@@ -706,6 +914,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
 
   const applyDemo = (demo: DemoCase) => {
     selectSession(null);
+    setPendingSessionSaveConfirmation(null);
+    resetPlanningState();
     setActiveDemoId(demo.id);
     setSubject(demo.subject);
     setTaskType(demo.taskType);
@@ -714,6 +924,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
     setError(null);
+    setLabBridgeMessage(null);
     const matchingTask = modeConfig.tasks.find((t) => t.taskType === demo.taskType);
     if (matchingTask) setActiveSubId(matchingTask.subId);
   };
@@ -790,34 +1001,111 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     );
   }, [result]);
 
+  const renderSidePanelContent = () => (
+    <>
+      <div data-rag-motion>
+        <KnowledgeBasisPanel
+          localCount={result?.source_summary.local_count ?? 0}
+          webCount={result?.source_summary.web_count ?? 0}
+          lowLocalMatch={lowLocalMatch}
+          localCitations={localCitations}
+          webCitations={webCitations}
+          chunks={result?.retrieved_chunks ?? []}
+          expandedSources={expandedSources}
+          highlightedSourceKey={highlightedSourceKey}
+          onToggle={toggleSource}
+        />
+      </div>
+
+      {result && (
+        <section data-rag-motion className="stemotion-panel rounded-lg p-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--stemotion-ink)]">
+            <FileText size={16} />
+            检索片段
+          </h3>
+          <div className="mt-3 space-y-3">
+            {result.retrieved_chunks.slice(0, 5).map((chunk, index) => {
+              const percent = normalizeScore(chunk.score);
+              const tone = similarityTone(percent);
+              return (
+                <div key={`${chunk.metadata.chunk_id ?? index}`} className="rounded-lg border border-[var(--stemotion-border)] bg-[#fbfaf6] p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+                    <span className="truncate">{String(chunk.metadata.file_name ?? chunk.metadata.title ?? 'chunk')}</span>
+                    <span className={tone.badgeClass}>{relevanceLabel(percent)}</span>
+                  </div>
+                  <div className="mb-2">
+                    <div className="mb-1 flex items-center justify-between text-xs text-[var(--stemotion-muted)]">
+                      <span>相似度</span>
+                      <span className="font-semibold text-[var(--stemotion-ink)]">{percent}%</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#e9e2d8]">
+                      <div className={`h-full rounded-full ${tone.barClass}`} style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                  <p className="line-clamp-4 text-xs leading-5 text-slate-600">{chunk.content}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {!sessionCollapsed && (
+        <div data-rag-motion>
+          <RagSessionPanel
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onNew={startNewSession}
+            onRestore={restoreSession}
+            onRename={renameSession}
+            onDelete={deleteSession}
+            onClear={clearSessions}
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setSessionCollapsed((c) => !c)}
+        className="w-full rounded-lg border border-[var(--stemotion-border)] bg-[#fbfaf6] px-3 py-2 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:bg-white"
+      >
+        {sessionCollapsed ? '展开本地学习会话' : '收起本地学习会话'}
+      </button>
+    </>
+  );
+
   return (
-    <div className="stemotion-page flex h-full min-h-0 flex-col overflow-hidden">
-      <section className="border-b border-[var(--stemotion-border)] bg-[rgba(255,253,248,0.92)] px-5 py-5 lg:px-6">
-        <div ref={heroMotionRef} className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-          <div data-rag-hero-motion className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-[var(--stemotion-primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--stemotion-primary-strong)]">
-                <BookOpenCheck size={16} />
+    <div data-rag-console className="stemotion-page flex h-full min-h-0 flex-col overflow-hidden">
+      <section data-rag-status-bar className="relative z-40 shrink-0 border-b border-[var(--stemotion-border)] bg-[rgba(255,253,248,0.95)] px-3 py-2 backdrop-blur-md lg:px-4">
+        <div ref={heroMotionRef} className="mx-auto flex w-full max-w-7xl flex-col gap-2">
+          <div data-rag-hero-motion className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="inline-flex h-8 items-center gap-1.5 rounded-full border border-teal-200 bg-[var(--stemotion-primary-soft)] px-2.5 text-xs font-semibold text-[var(--stemotion-primary-strong)]">
+                <BookOpenCheck size={14} />
                 <span>学科助学</span>
               </div>
-              <h1 className="mt-3 text-2xl font-bold text-[var(--stemotion-ink)] lg:text-3xl">大学物理力学智能助学系统</h1>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--stemotion-muted)]">
-                基于课程知识库与网络检索的可追溯 RAG 问答、分步推导与运动可视化
-              </p>
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-bold text-[var(--stemotion-ink)] sm:text-lg">大学物理力学智能助学系统</h1>
+                <p className="hidden text-[11px] leading-4 text-[var(--stemotion-muted)] sm:block">
+                  {modeConfig.title} · {activeTask.label} · RAG 问答与可视化
+                </p>
+              </div>
             </div>
 
-            <div className="grid w-full gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] xl:w-[720px]">
-              <label className="min-w-0 text-sm font-semibold text-[var(--stemotion-ink)]">
-                当前学科 Skill
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <ModelProfileSwitcher />
+              <label className="min-w-[190px] text-[11px] font-semibold text-[var(--stemotion-muted)]">
+                学科
                 <select
                   value={subject}
                   onChange={(event) => {
+                    setPendingSessionSaveConfirmation(null);
+                    resetPlanningState();
                     setSubject(event.target.value);
                     setResult(null);
                     setSkillOpen(false);
                   }}
                   disabled={loadingSubjects}
-                  className="mt-1 h-11 w-full rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 text-sm text-[var(--stemotion-ink)] shadow-sm transition focus:border-[var(--stemotion-primary)] disabled:opacity-60"
+                  className="ml-2 h-8 min-w-[150px] rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-2 text-xs font-semibold text-[var(--stemotion-ink)] shadow-sm transition focus:border-[var(--stemotion-primary)] disabled:opacity-60"
                 >
                   {subjects.map((item) => (
                     <option key={item.name} value={item.name}>
@@ -826,89 +1114,107 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                   ))}
                 </select>
               </label>
+              <span className="inline-flex h-8 items-center rounded-lg border border-[var(--stemotion-border)] bg-white px-2 text-xs font-semibold text-[var(--stemotion-muted)]">
+                知识库：{activeSubject?.knowledge_status?.indexed ? `已索引 ${activeSubject.knowledge_status.file_count} / ${activeSubject.knowledge_status.chunk_count}` : '未索引'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setRightPanelOpen((open) => !open)}
+                data-rag-right-panel-toggle
+                className="stemotion-pressable inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--stemotion-border)] bg-white px-2 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:border-teal-200 hover:bg-[var(--stemotion-primary-soft)] hover:text-[var(--stemotion-primary-strong)]"
+              >
+                {rightPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+                {rightPanelOpen ? '收起右栏' : '展开右栏'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvancedControlsOpen((open) => !open)}
+                aria-expanded={advancedControlsOpen}
+                className="stemotion-pressable inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--stemotion-border)] bg-white px-2 text-xs font-semibold text-[var(--stemotion-ink)] transition hover:border-teal-200 hover:bg-[var(--stemotion-primary-soft)] hover:text-[var(--stemotion-primary-strong)]"
+              >
+                <SlidersHorizontal size={14} />
+                高级选项
+                <ChevronDown size={14} className={`transition ${advancedControlsOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          </div>
 
+          <div
+            data-rag-advanced-controls
+            hidden={!advancedControlsOpen}
+            className="rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] p-2 shadow-sm"
+          >
+            <div className="grid gap-2 text-xs md:grid-cols-[auto_auto_minmax(0,1fr)] xl:grid-cols-[auto_auto_auto_auto_minmax(0,1fr)]">
               <button
                 type="button"
                 onClick={() => setSkillOpen(true)}
                 disabled={!activeSubject}
-                className="stemotion-pressable inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 text-sm font-semibold text-[var(--stemotion-ink)] shadow-sm transition hover:border-teal-200 hover:bg-[var(--stemotion-primary-soft)] hover:text-[var(--stemotion-primary-strong)] disabled:opacity-60"
+                className="stemotion-pressable inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 font-semibold text-[var(--stemotion-ink)] shadow-sm transition hover:border-teal-200 hover:bg-[var(--stemotion-primary-soft)] disabled:opacity-60"
               >
-                <Eye size={16} />
-                查看 Skill 配置
+                <Eye size={15} />
+                Skill 配置
               </button>
-
-              <label
-                className="stemotion-pressable flex h-11 items-center gap-2 self-end rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 text-sm font-semibold text-[var(--stemotion-ink)] shadow-sm"
-                title="本地知识库不足时补充公开资料，网络结果仅作为补充参考。"
-              >
+              <label className="stemotion-pressable flex min-h-9 items-center gap-2 rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 font-semibold text-[var(--stemotion-ink)] shadow-sm">
                 <input
                   type="checkbox"
                   checked={useWebSearch}
-                  onChange={(event) => setUseWebSearch(event.target.checked)}
+                  onChange={(event) => {
+                    resetPlanningState();
+                    setUseWebSearch(event.target.checked);
+                  }}
                   className="h-4 w-4 rounded border-slate-300 text-[var(--stemotion-primary)]"
                 />
                 网络检索
               </label>
-
-              <label
-                className="stemotion-pressable flex h-11 items-center gap-2 self-end rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 text-sm font-semibold text-[var(--stemotion-ink)] shadow-sm"
-                title="跳过质量审核，生成速度更快（约3秒），但可能降低答案质量。"
-              >
+              <label className="stemotion-pressable flex min-h-9 items-center gap-2 rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 font-semibold text-[var(--stemotion-ink)] shadow-sm">
                 <input
                   type="checkbox"
                   checked={fastMode}
-                  onChange={(event) => setFastMode(event.target.checked)}
+                  onChange={(event) => {
+                    resetPlanningState();
+                    setFastMode(event.target.checked);
+                  }}
                   className="h-4 w-4 rounded border-slate-300 text-[var(--stemotion-primary)]"
                 />
                 快速模式
               </label>
-
-              <div
-                className="flex h-11 items-center gap-2 self-end rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 text-sm font-semibold text-[var(--stemotion-ink)] shadow-sm"
-                title="控制可视化生成：自动（关键词检测）、手动（仅提示）、关闭（不生成）"
+              <label
+                data-rag-planning-mode-toggle
+                className="stemotion-pressable flex min-h-9 items-center gap-2 rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 font-semibold text-[var(--stemotion-ink)] shadow-sm"
               >
-                <span className="text-xs text-[var(--stemotion-muted)]">可视化：</span>
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="visualizationMode"
-                    value="auto"
-                    checked={visualizationMode === 'auto'}
-                    onChange={(e) => setVisualizationMode(e.target.value as 'auto')}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="text-xs">自动</span>
-                </label>
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="visualizationMode"
-                    value="manual"
-                    checked={visualizationMode === 'manual'}
-                    onChange={(e) => setVisualizationMode(e.target.value as 'manual')}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="text-xs">手动</span>
-                </label>
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="visualizationMode"
-                    value="off"
-                    checked={visualizationMode === 'off'}
-                    onChange={(e) => setVisualizationMode(e.target.value as 'off')}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="text-xs">关闭</span>
-                </label>
+                <input
+                  type="checkbox"
+                  checked={planningModeEnabled}
+                  onChange={(event) => {
+                    if (!event.target.checked) resetPlanningState();
+                    setPlanningModeEnabled(event.target.checked);
+                  }}
+                  className="h-4 w-4 rounded border-slate-300 text-[var(--stemotion-primary)]"
+                />
+                规划模式
+              </label>
+              <div className="flex min-h-9 flex-wrap items-center gap-2 rounded-lg border border-[var(--stemotion-border)] bg-[var(--stemotion-surface-strong)] px-3 font-semibold text-[var(--stemotion-ink)] shadow-sm">
+                <span className="text-[11px] text-[var(--stemotion-muted)]">可视化</span>
+                {(['auto', 'manual', 'off'] as const).map((value) => (
+                  <label key={value} className="flex cursor-pointer items-center gap-1">
+                    <input
+                      type="radio"
+                      name="visualizationMode"
+                      value={value}
+                      checked={visualizationMode === value}
+                      onChange={() => {
+                        resetPlanningState();
+                        setVisualizationMode(value);
+                      }}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span>{value === 'auto' ? '自动' : value === 'manual' ? '手动' : '关闭'}</span>
+                  </label>
+                ))}
               </div>
             </div>
-          </div>
-
-          <div data-rag-hero-motion className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-            <SkillStatus subject={activeSubject} />
-            <div className="stemotion-panel flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-xs text-[var(--stemotion-primary-strong)]">
-              <span className="mr-1 font-semibold text-[var(--stemotion-ink)]">能力标签</span>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--stemotion-primary-strong)]">
+              <span className="font-semibold text-[var(--stemotion-ink)]">能力标签</span>
               {(activeSubject?.tools.length ? activeSubject.tools : ['分步推导', '单位检查', '运动可视化', '错因诊断']).map((tool) => (
                 <span key={tool} className="rounded-full border border-teal-100 bg-white px-2.5 py-1 font-semibold shadow-sm">
                   {toolLabel(tool)}
@@ -919,107 +1225,51 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
         </div>
       </section>
 
-      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 lg:px-6">
-        <div ref={workspaceMotionRef} className="mx-auto w-full max-w-7xl space-y-5">
-          <div className="grid w-full gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <main className="min-w-0 space-y-5">
-            <section data-rag-motion className="stemotion-elevated rounded-lg p-4">
-              <div className="mb-4">
-                <h2 className="text-base font-semibold text-[var(--stemotion-ink)]">{modeConfig.title}</h2>
-                <p className="mt-1 text-xs text-[var(--stemotion-muted)]">{modeConfig.subtitle}</p>
-              </div>
+      <div data-rag-workspace-grid className="flex min-h-0 flex-1 overflow-hidden">
+        <main data-rag-main-column className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div
+            data-rag-workspace-scroll
+            className={`custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-3 lg:px-4 lg:py-4 ${
+              composerVisible
+                ? composerExpanded ? 'pb-72 lg:pb-80' : 'pb-48 lg:pb-52'
+                : 'pb-4'
+            }`}
+          >
+            <div ref={workspaceMotionRef} className="mx-auto w-full max-w-5xl space-y-4">
+              {shouldShowVisualizationPanel && (
+                <RagVisualizationPanel
+                  artifact={visualizationArtifact}
+                  schemaReady={Boolean(visualizationSchema)}
+                  generation={visualizationGeneration}
+                  source={mode === 'student' ? 'student' : 'teacher'}
+                  subject={activeSubject?.name || 'physics_mechanics'}
+                  originalQuestion={question}
+                  taskType={activeTask.taskType}
+                  qualityReport={result?.quality_report}
+                  manualHint={hasManualVisualizationHint ? result?.visualization_hint : undefined}
+                  onManualTrigger={hasManualVisualizationHint ? triggerManualVisualization : undefined}
+                />
+              )}
 
-              <h3 className="mb-2 text-sm font-semibold text-[var(--stemotion-muted)]">
-                {modeConfig.title}任务
-              </h3>
-              <div className="mb-4 grid gap-1 rounded-lg border border-[var(--stemotion-border)] bg-[#f1eee6] p-1 sm:grid-cols-3">
-                {modeConfig.tasks.map((task) => (
-                  <button
-                    type="button"
-                    key={task.subId}
-                    onClick={() => {
-                      setTaskType(task.taskType);
-                      setActiveSubId(task.subId);
-                    }}
-                    className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm transition ${
-                      activeSubId === task.subId
-                        ? 'border-white bg-white font-semibold text-[var(--stemotion-primary-strong)] shadow-sm'
-                        : 'border-transparent text-slate-600 hover:bg-white/70 hover:text-[var(--stemotion-ink)]'
-                    }`}
-                  >
-                    {task.label}
-                    <span className="mt-0.5 block text-[11px] font-normal leading-4 text-[var(--stemotion-muted)]">{task.description}</span>
-                  </button>
-                ))}
-              </div>
-              {showExampleCards && (
-                <div className="mb-4 grid gap-2 md:grid-cols-3">
-                  {demosByGroup[mode]?.map((demo) => (
-                    <DemoCard key={demo.id} demo={demo} active={activeDemoId === demo.id} onClick={() => applyDemo(demo)} />
-                  ))}
+              <section
+                data-rag-mobile-info-panel
+                hidden={!rightPanelOpen}
+                className="rounded-lg border border-[var(--stemotion-border)] bg-white/80 p-3 text-xs text-[var(--stemotion-muted)] shadow-sm xl:hidden"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-[var(--stemotion-ink)]">信息面板</span>
+                  <span>本地 {result?.source_summary.local_count ?? 0} · 网络 {result?.source_summary.web_count ?? 0}</span>
+                </div>
+                {progressModel && <p className="mt-2 text-[var(--stemotion-primary-strong)]">{progressModel.message}</p>}
+              </section>
+
+              {progressModel && (
+                <div data-rag-main-progress data-rag-motion>
+                  <RealisticProgressPanel model={progressModel} variant="compact" />
                 </div>
               )}
-              {mode === 'visualization' && (
-                <p className="mb-4 rounded-lg border border-teal-100 bg-[var(--stemotion-primary-soft)] px-3 py-2 text-xs leading-5 text-[var(--stemotion-primary-strong)]">
-                  可视化演示会由 RAG 可视化编排器判断类型，并优先生成可保存、可打开的交互 artifact。
-                </p>
-              )}
 
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-[var(--stemotion-ink)]" htmlFor="rag-question">
-                  问题输入
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    userEditedRef.current = false;
-                    setQuestion(modeConfig.defaultQuestion);
-                  }}
-                  className="text-xs text-teal-600 hover:text-teal-700 hover:underline"
-                >
-                  使用默认问题
-                </button>
-              </div>
-              <textarea
-                id="rag-question"
-                value={question}
-                onChange={(event) => {
-                  userEditedRef.current = true;
-                  setQuestion(event.target.value);
-                  setActiveDemoId(null);
-                }}
-                rows={7}
-                placeholder={activeTask.recommendedQuestion}
-                className="mt-2 w-full resize-none rounded-lg border border-[var(--stemotion-border)] bg-[#fbfaf6] px-3 py-3 text-sm leading-6 text-[var(--stemotion-ink)] transition focus:border-[var(--stemotion-primary)] focus:bg-white"
-              />
-              <p className="mt-1 text-[11px] text-[var(--stemotion-muted)]">
-                当前默认问题为大学课程综合任务，包含模型假设、参数分析、单位检查和可视化参数。
-              </p>
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--stemotion-muted)]">
-                  <span>当前模块：<strong className="text-[var(--stemotion-ink)]">{modeConfig.title}</strong></span>
-                  <span>当前任务：<strong className="text-[var(--stemotion-ink)]">{activeTask.label}</strong></span>
-                  <span>默认学科：<strong className="text-[var(--stemotion-ink)]">大学物理力学</strong></span>
-                </div>
-                <button
-                  type="button"
-                  onClick={ask}
-                  disabled={asking || loadingSubjects}
-                  className="stemotion-pressable inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--stemotion-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--stemotion-primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {asking ? <Loader2 size={17} className="animate-spin" /> : <Search size={17} />}
-                  {asking ? (progressModel?.message || '处理中...') : '开始问答'}
-                </button>
-              </div>
-              {error && (
-                <p className="mt-3 rounded-lg border border-amber-200 bg-[var(--stemotion-amber-soft)] px-3 py-2 text-sm text-[var(--stemotion-amber)]" role="alert">
-                  {error}
-                </p>
-              )}
-            </section>
-
-            <section data-rag-motion className="stemotion-elevated rounded-lg p-5" aria-live="polite">
+              <section data-rag-motion className="stemotion-elevated rounded-lg p-4 sm:p-5" aria-live="polite">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-[var(--stemotion-primary-strong)]">智能回答</p>
@@ -1041,6 +1291,29 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                   <div data-result-motion>
                     <AnswerMetaBar result={result} />
                   </div>
+                  {canBridgeToLab && (
+                    <div data-result-motion className="flex flex-col gap-3 rounded-lg border border-teal-100 bg-[var(--stemotion-primary-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-[var(--stemotion-ink)]">把当前回答转成 Lab 实验</h3>
+                        <p className="mt-1 text-xs leading-5 text-[var(--stemotion-muted)]">
+                          仅带入问题、回答摘要和已有来源，不会自动生成 Guided Plan。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={bridgeAnswerToLab}
+                        className="stemotion-pressable inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--stemotion-primary)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--stemotion-primary-strong)]"
+                      >
+                        <Plus size={16} />
+                        生成交互实验
+                      </button>
+                    </div>
+                  )}
+                  {labBridgeMessage && (
+                    <p data-result-motion className="rounded-lg border border-amber-200 bg-[var(--stemotion-amber-soft)] px-3 py-2 text-sm leading-6 text-[var(--stemotion-amber)]">
+                      {labBridgeMessage}
+                    </p>
+                  )}
                   {presentationIssue && (
                     <p data-result-motion className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm leading-6 text-red-700">
                       最终呈现检查提醒：{presentationIssue.message}
@@ -1085,136 +1358,280 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                   </p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-[var(--stemotion-border-strong)] bg-[#fbfaf6] px-4 py-10 text-center">
-                  <p className="text-sm font-semibold text-[var(--stemotion-ink)]">推荐演示流程</p>
+                <div className="rounded-lg border border-dashed border-[var(--stemotion-border-strong)] bg-[#fbfaf6] px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-[var(--stemotion-ink)]">从底部输入框开始</p>
                   <p className="mt-2 text-xs leading-5 text-[var(--stemotion-muted)]">
-                    {mode === 'student' ? (
-                      <>
-                        1. 保留默认大学物理综合问题，或输入自己的学习问题。<br />
-                        2. 选择「知识讲解 / 分步解题 / 错因诊断」任务类型。<br />
-                        3. 点击「开始问答」。<br />
-                        4. 查看结构化回答、引用来源和可视化参数。
-                      </>
-                    ) : (
-                      <>
-                        1. 选择一个任务卡片或点击下方案例<br />
-                        2. 点击「开始问答」查看结构化回答<br />
-                        3. 展开右侧「知识依据」查看引用来源
-                      </>
-                    )}
+                    选择任务、输入问题并点击「开始问答」。回答、公式、引用和可视化结果会呈现在这里。
                   </p>
-                  {showExampleCards && (
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                      {(demosByGroup[mode] ?? []).slice(0, 3).map((demo) => (
-                        <button
-                          key={demo.id}
-                          type="button"
-                          onClick={() => applyDemo(demo)}
-                          className="rounded-full border border-teal-200 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--stemotion-primary-strong)] transition hover:bg-[var(--stemotion-primary-soft)]"
-                        >
-                          {demo.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </section>
-
-          </main>
-
-          <aside className="min-w-0 space-y-5">
-            {progressModel && (
-              <div data-rag-motion>
-                <RealisticProgressPanel model={progressModel} />
-              </div>
-            )}
-
-            <div data-rag-motion>
-              <KnowledgeBasisPanel
-                localCount={result?.source_summary.local_count ?? 0}
-                webCount={result?.source_summary.web_count ?? 0}
-                lowLocalMatch={lowLocalMatch}
-                localCitations={localCitations}
-                webCitations={webCitations}
-                chunks={result?.retrieved_chunks ?? []}
-                expandedSources={expandedSources}
-                highlightedSourceKey={highlightedSourceKey}
-                onToggle={toggleSource}
-              />
             </div>
-
-            {result && (
-              <section data-rag-motion className="stemotion-panel rounded-lg p-4">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--stemotion-ink)]">
-                  <FileText size={17} />
-                  检索片段
-                </h3>
-                <div className="mt-3 space-y-3">
-                  {result.retrieved_chunks.slice(0, 5).map((chunk, index) => {
-                    const percent = normalizeScore(chunk.score);
-                    const tone = similarityTone(percent);
-                    return (
-                      <div key={`${chunk.metadata.chunk_id ?? index}`} className="rounded-lg border border-[var(--stemotion-border)] bg-[#fbfaf6] p-3">
-                        <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
-                          <span className="truncate">{String(chunk.metadata.file_name ?? chunk.metadata.title ?? 'chunk')}</span>
-                          <span className={tone.badgeClass}>{relevanceLabel(percent)}</span>
-                        </div>
-                        <div className="mb-2">
-                          <div className="mb-1 flex items-center justify-between text-xs text-[var(--stemotion-muted)]">
-                            <span>相似度</span>
-                            <span className="font-semibold text-[var(--stemotion-ink)]">{percent}%</span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-[#e9e2d8]">
-                            <div className={`h-full rounded-full ${tone.barClass}`} style={{ width: `${percent}%` }} />
-                          </div>
-                        </div>
-                        <p className="line-clamp-4 text-xs leading-5 text-slate-600">{chunk.content}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {!sessionCollapsed && (
-              <div data-rag-motion>
-                <RagSessionPanel
-                  sessions={sessions}
-                  currentSessionId={currentSessionId}
-                  onNew={startNewSession}
-                  onRestore={restoreSession}
-                  onRename={renameSession}
-                  onDelete={deleteSession}
-                  onClear={clearSessions}
-                />
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setSessionCollapsed((c) => !c)}
-              className="w-full rounded-lg border border-[var(--stemotion-border)] bg-[#fbfaf6] px-3 py-2 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:bg-white"
-            >
-              {sessionCollapsed ? '展开本地学习会话' : '收起本地学习会话'}
-            </button>
-          </aside>
           </div>
 
-          {shouldShowVisualizationPanel && (
-            <RagVisualizationPanel
-              artifact={visualizationArtifact}
-              schemaReady={Boolean(visualizationSchema)}
-              generation={visualizationGeneration}
-              source={mode === 'student' ? 'student' : 'teacher'}
-              subject={activeSubject?.name || 'physics_mechanics'}
-              originalQuestion={question}
-              taskType={activeTask.taskType}
-              qualityReport={result?.quality_report}
-              manualHint={hasManualVisualizationHint ? result?.visualization_hint : undefined}
-              onManualTrigger={hasManualVisualizationHint ? triggerManualVisualization : undefined}
-            />
+          {composerVisible ? (
+          <section
+            data-rag-bottom-composer
+            data-rag-composer-overlay
+            className="pointer-events-none absolute inset-x-2 bottom-2 z-30 sm:inset-x-3 sm:bottom-3 lg:inset-x-4"
+          >
+            <div className="pointer-events-auto mx-auto max-h-[min(56vh,420px)] w-full max-w-5xl space-y-2 overflow-y-auto rounded-xl border border-[var(--stemotion-border)] bg-[rgba(255,253,248,0.96)] p-2 shadow-[0_-10px_34px_rgba(23,32,51,0.16)] backdrop-blur-md">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-lg border border-[var(--stemotion-border)] bg-[#f1eee6] p-1 sm:grid sm:grid-cols-3 sm:overflow-visible">
+                  {modeConfig.tasks.map((task) => (
+                    <button
+                      type="button"
+                      key={task.subId}
+                      onClick={() => {
+                        setPendingSessionSaveConfirmation(null);
+                        resetPlanningState();
+                        setTaskType(task.taskType);
+                        setActiveSubId(task.subId);
+                      }}
+                      className={`min-h-9 min-w-[136px] shrink-0 rounded-md border px-2 py-1.5 text-left text-xs transition sm:min-w-0 ${
+                        activeSubId === task.subId
+                          ? 'border-white bg-white font-semibold text-[var(--stemotion-primary-strong)] shadow-sm'
+                          : 'border-transparent text-slate-600 hover:bg-white/70 hover:text-[var(--stemotion-ink)]'
+                      }`}
+                    >
+                      {task.label}
+                      {composerExpanded && (
+                        <span className="hidden text-[10px] font-normal leading-4 text-[var(--stemotion-muted)] md:block">{task.description}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setComposerExpanded((expanded) => !expanded)}
+                  className="stemotion-pressable inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[var(--stemotion-border)] bg-white px-2.5 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:border-teal-200 hover:bg-[var(--stemotion-primary-soft)]"
+                >
+                  {composerExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  {composerExpanded ? '收起输入' : '展开输入'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposerVisible(false)}
+                  className="stemotion-pressable inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[var(--stemotion-border)] bg-white px-2.5 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:border-amber-200 hover:bg-[var(--stemotion-amber-soft)] hover:text-[var(--stemotion-amber)]"
+                  aria-label="隐藏底部输入框"
+                >
+                  <X size={14} />
+                  隐藏输入
+                </button>
+              </div>
+
+              {showExampleCards && composerExpanded && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(demosByGroup[mode] ?? []).slice(0, 4).map((demo) => (
+                    <button
+                      key={demo.id}
+                      type="button"
+                      onClick={() => applyDemo(demo)}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        activeDemoId === demo.id
+                          ? 'border-teal-300 bg-[var(--stemotion-primary-soft)] text-[var(--stemotion-primary-strong)]'
+                          : 'border-[var(--stemotion-border)] bg-white text-[var(--stemotion-muted)] hover:border-teal-200'
+                      }`}
+                    >
+                      {demo.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {pendingRagPlan && (
+                <div
+                  data-rag-planning-confirmation
+                  className="rounded-lg border border-teal-200 bg-[var(--stemotion-primary-soft)] p-3 shadow-sm"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-white px-2 py-1 text-[11px] font-bold text-[var(--stemotion-primary-strong)]">
+                        <ShieldCheck size={13} />
+                        Codex 规划模式
+                      </div>
+                      <h3 className="mt-2 text-sm font-semibold text-[var(--stemotion-ink)]">{pendingRagPlan.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-[var(--stemotion-muted)]">{pendingRagPlan.summary}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={resetPlanningState}
+                      className="stemotion-pressable inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border border-teal-200 bg-white px-2.5 text-xs font-semibold text-[var(--stemotion-muted)] transition hover:text-[var(--stemotion-ink)]"
+                    >
+                      修改问题
+                    </button>
+                  </div>
+                  <ol className="mt-3 grid gap-2 text-xs text-[var(--stemotion-ink)] md:grid-cols-2">
+                    {pendingRagPlan.steps.map((step, index) => (
+                      <li key={`${pendingRagPlan.id}-step-${index}`} className="rounded-lg border border-teal-100 bg-white/80 px-3 py-2 leading-5">
+                        <span className="mr-2 font-bold text-[var(--stemotion-primary-strong)]">{index + 1}.</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                  {pendingRagPlan.questions.length > 0 && (
+                    <div className="mt-3 grid gap-2 md:grid-cols-3">
+                      {pendingRagPlan.questions.map((item) => (
+                        <label
+                          key={item.id}
+                          data-rag-planning-question
+                          className="rounded-lg border border-teal-100 bg-white/85 p-2 text-xs text-[var(--stemotion-ink)]"
+                        >
+                          <span className="font-semibold">{item.prompt}</span>
+                          <input
+                            type="text"
+                            value={ragPlanningAnswers[item.id] ?? ''}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setRagPlanningAnswers((current) => ({ ...current, [item.id]: value }));
+                            }}
+                            placeholder={item.placeholder}
+                            className="mt-2 h-9 w-full rounded-md border border-[var(--stemotion-border)] bg-[#fbfaf6] px-2 text-xs text-[var(--stemotion-ink)] transition focus:border-[var(--stemotion-primary)] focus:bg-white"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs leading-5 text-[var(--stemotion-muted)]">
+                      确认后才会检索知识库、调用模型并生成回答；当前只是本地规划。
+                    </p>
+                    <button
+                      type="button"
+                      onClick={confirmRagPlanAndAsk}
+                      disabled={asking || loadingSubjects}
+                      className="stemotion-pressable inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[var(--stemotion-primary)] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[var(--stemotion-primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {asking ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                      确认并开始
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-[var(--stemotion-border)] bg-white p-2 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <label className="text-xs font-semibold text-[var(--stemotion-muted)]" htmlFor="rag-question">
+                      问题输入 · {activeTask.label}
+                    </label>
+                    <span
+                      data-rag-save-intent-label
+                      className="max-w-full truncate rounded-full border border-[var(--stemotion-border)] bg-[#fbfaf6] px-2 py-1 text-[11px] font-semibold text-[var(--stemotion-muted)]"
+                    >
+                      {sessionSaveIntentLabel}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSessionSaveConfirmation(null);
+                      resetPlanningState();
+                      userEditedRef.current = false;
+                      setQuestion(modeConfig.defaultQuestion);
+                    }}
+                    className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+                  >
+                    使用默认问题
+                  </button>
+                </div>
+                {visiblePendingSessionSaveConfirmation && (
+                  <div
+                    data-rag-save-confirmation
+                    className="mt-2 flex flex-col gap-2 rounded-lg border border-amber-200 bg-[var(--stemotion-amber-soft)] px-3 py-2 text-xs text-[var(--stemotion-ink)] sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <span className="leading-5">
+                      这次问题和「{visiblePendingSessionSaveConfirmation.title}」相似，要更新当前会话还是保存为新会话？
+                    </span>
+                    <span className="flex shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void ask('update-current', {
+                            skipPlanning: true,
+                            plannedQuestion: confirmedPlanningQuestion ?? visiblePendingSessionSaveConfirmation.question,
+                          });
+                        }}
+                        className="stemotion-pressable inline-flex min-h-8 items-center rounded-md bg-[var(--stemotion-primary)] px-2.5 font-semibold text-white transition hover:bg-[var(--stemotion-primary-strong)]"
+                      >
+                        更新当前会话
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void ask('new-session', {
+                            skipPlanning: true,
+                            plannedQuestion: confirmedPlanningQuestion ?? visiblePendingSessionSaveConfirmation.question,
+                          });
+                        }}
+                        className="stemotion-pressable inline-flex min-h-8 items-center rounded-md border border-amber-300 bg-white px-2.5 font-semibold text-[var(--stemotion-amber)] transition hover:bg-[#fffaf0]"
+                      >
+                        保存为新会话
+                      </button>
+                    </span>
+                  </div>
+                )}
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <textarea
+                    id="rag-question"
+                    value={question}
+                    onChange={(event) => {
+                      userEditedRef.current = true;
+                      setPendingSessionSaveConfirmation(null);
+                      resetPlanningState();
+                      setQuestion(event.target.value);
+                      setActiveDemoId(null);
+                    }}
+                    rows={composerExpanded ? 5 : 2}
+                    placeholder={activeTask.recommendedQuestion}
+                    className="min-h-16 flex-1 resize-none rounded-lg border border-transparent bg-[#fbfaf6] px-3 py-2 text-sm leading-6 text-[var(--stemotion-ink)] transition focus:border-[var(--stemotion-primary)] focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { void ask(); }}
+                    disabled={asking || loadingSubjects}
+                    className="stemotion-pressable inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--stemotion-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--stemotion-primary-strong)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[128px]"
+                  >
+                    {asking ? <Loader2 size={17} className="animate-spin" /> : <Search size={17} />}
+                    {asking ? (progressModel?.message || '处理中...') : planningModeEnabled ? '先规划' : '开始问答'}
+                  </button>
+                </div>
+                {error && (
+                  <p className="mt-2 rounded-lg border border-amber-200 bg-[var(--stemotion-amber-soft)] px-3 py-2 text-sm text-[var(--stemotion-amber)]" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+          ) : (
+            <button
+              type="button"
+              data-rag-composer-restore
+              onClick={() => setComposerVisible(true)}
+              className="stemotion-pressable absolute bottom-3 left-1/2 z-30 inline-flex min-h-10 -translate-x-1/2 items-center gap-2 rounded-full border border-teal-200 bg-[rgba(255,253,248,0.96)] px-4 text-sm font-semibold text-[var(--stemotion-primary-strong)] shadow-[0_10px_24px_rgba(23,32,51,0.14)] backdrop-blur-md transition hover:bg-white"
+            >
+              <Maximize2 size={16} />
+              显示输入
+            </button>
           )}
-        </div>
+        </main>
+
+        {rightPanelOpen ? (
+          <aside data-rag-side-column className="custom-scrollbar hidden w-[320px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--stemotion-border)] bg-[rgba(255,253,248,0.9)] p-3 xl:flex">
+            {renderSidePanelContent()}
+          </aside>
+        ) : (
+          <button
+            type="button"
+            data-rag-right-panel-toggle
+            onClick={() => setRightPanelOpen(true)}
+            className="hidden w-10 shrink-0 items-center justify-center border-l border-[var(--stemotion-border)] bg-[rgba(255,253,248,0.9)] text-[var(--stemotion-muted)] transition hover:bg-[var(--stemotion-primary-soft)] hover:text-[var(--stemotion-primary-strong)] xl:flex"
+            aria-label="展开右侧信息栏"
+          >
+            <PanelRightOpen size={18} />
+          </button>
+        )}
       </div>
 
       {skillOpen && activeSubject && (
@@ -1248,17 +1665,28 @@ function RagVisualizationPanel({
   onManualTrigger?: () => void;
 }) {
   const isManualWaiting = Boolean(manualHint) && !artifact && generation.status === 'idle';
+  const compactReadyHeader = Boolean(artifact && schemaReady);
   return (
-    <section data-rag-motion className="min-h-[760px] rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col justify-between gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-end lg:p-5">
+    <section
+      data-rag-motion
+      data-rag-visualization-panel
+      className="min-h-[min(620px,calc(100vh-6rem))] rounded-lg border border-slate-200 bg-white shadow-sm"
+    >
+      <div
+        className={
+          compactReadyHeader
+            ? 'hidden flex-col justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:flex lg:flex-row lg:items-center'
+            : 'flex flex-col justify-between gap-2 border-b border-slate-200 p-3 lg:flex-row lg:items-end lg:px-4'
+        }
+      >
         <div>
           <div className="text-xs font-black uppercase tracking-wider text-blue-600">
             多 Agent 互动可视化
           </div>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+          <h2 className={compactReadyHeader ? 'mt-0.5 text-base font-black tracking-tight text-slate-950' : 'mt-1 text-xl font-black tracking-tight text-slate-950 lg:text-2xl'}>
             {artifact?.title ?? (isManualWaiting ? '可视化提示' : '正在生成题目专属互动可视化')}
           </h2>
-          <p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-600">
+          <p className={compactReadyHeader ? 'hidden' : 'mt-1 line-clamp-2 max-w-4xl text-xs leading-relaxed text-slate-600 sm:text-sm'}>
             {artifact?.description ?? (isManualWaiting
               ? '已检测到可可视化的内容，点击下方按钮手动生成互动可视化。'
               : (generation.message || 'RAG 回答已完成，下方正在通过题目提取、HTML 生成、Pedagogy/UX/Safety/Runtime 审计与修复流程生成互动 artifact。'))}
@@ -1276,11 +1704,11 @@ function RagVisualizationPanel({
         )}
       </div>
 
-      <div className="min-h-[680px] overflow-hidden bg-white">
+      <div data-rag-visualization-body className="min-h-[min(520px,calc(100vh-12rem))] overflow-hidden bg-white">
         {artifact && schemaReady ? (
           <ArtifactRenderer artifact={artifact} />
         ) : isManualWaiting ? (
-          <div className="flex min-h-[680px] flex-col items-center justify-center gap-6 p-6">
+          <div className="flex min-h-[min(520px,calc(100vh-12rem))] flex-col items-center justify-center gap-6 p-6">
             <div className="w-full max-w-lg rounded-lg border border-blue-200 bg-blue-50 p-5 text-center">
               <p className="text-sm font-semibold text-blue-800">检测到可视化提示</p>
               <p className="mt-2 text-xs leading-5 text-blue-700">
@@ -1312,8 +1740,11 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
   const missing = generation.diagnostics?.missing?.filter(Boolean) ?? [];
   const repairAttempts = generation.diagnostics?.repairAttempts;
   return (
-    <div className="grid min-h-[680px] gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="flex min-h-[560px] items-center justify-center bg-slate-50 p-6">
+    <div
+      data-rag-visualization-skeleton
+      className="grid min-h-[min(520px,calc(100vh-12rem))] gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]"
+    >
+      <div className="flex min-h-[420px] items-center justify-center bg-slate-50 p-4 lg:min-h-0 lg:p-6">
         <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
@@ -1363,7 +1794,7 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
           )}
         </div>
       </div>
-      <aside className="border-t border-slate-200 bg-slate-50 p-4 lg:border-l lg:border-t-0">
+      <aside className="border-t border-slate-200 bg-slate-50 p-3 lg:border-l lg:border-t-0">
         <div className="text-xs font-black uppercase tracking-wider text-slate-500">生成日志</div>
         <div className="mt-3 space-y-2">
           {(generation.logs.length ? generation.logs : ['等待生成任务...']).map((item, index) => (
@@ -1383,23 +1814,6 @@ function formatVisualizationDiagnostics(diagnostics?: RagVisualizationFailureDia
   if (diagnostics.repairAttempts !== undefined) parts.push(`已尝试 ${diagnostics.repairAttempts} 轮修复`);
   if (diagnostics.missing?.length) parts.push(`缺失合约项：${diagnostics.missing.slice(0, 8).join('、')}`);
   return parts.join('；');
-}
-
-function DemoCard({ demo, active, onClick }: { demo: DemoCase; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`stemotion-pressable min-h-[112px] rounded-lg border p-3 text-left transition ${
-        active
-          ? 'border-teal-300 bg-[var(--stemotion-primary-soft)] shadow-sm'
-          : 'border-[var(--stemotion-border)] bg-[#fbfaf6] hover:border-teal-200 hover:bg-white'
-      }`}
-    >
-      <p className="text-sm font-semibold text-[var(--stemotion-ink)]">{demo.title}</p>
-      <p className="mt-2 text-xs leading-5 text-[var(--stemotion-muted)]">{demo.description}</p>
-    </button>
-  );
 }
 
 function KnowledgeBasisPanel({
@@ -1604,23 +2018,6 @@ function RagSessionPanel({
         </button>
       )}
     </section>
-  );
-}
-
-function SkillStatus({ subject }: { subject?: SubjectInfo }) {
-  const status = subject?.knowledge_status;
-  return (
-    <div className="stemotion-panel rounded-lg px-4 py-3 text-sm text-slate-700">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="font-semibold text-[var(--stemotion-ink)]">知识库状态</span>
-        <span>已加载 {status?.file_count ?? 0} 个文件 / {status?.chunk_count ?? 0} 个片段</span>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-          status?.indexed ? 'bg-emerald-50 text-emerald-700' : 'bg-[var(--stemotion-amber-soft)] text-[var(--stemotion-amber)]'
-        }`}>
-          {status?.indexed ? '已索引' : '待构建索引'}
-        </span>
-      </div>
-    </div>
   );
 }
 

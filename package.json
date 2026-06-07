@@ -1,6 +1,6 @@
 {
   "name": "stemotion-mvp",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
@@ -10,6 +10,11 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "test": "tsx --test tests/*.ts",
+    "test:contracts": "tsx --test tests/test_llm_request_builder.ts tests/test_prompt_contracts.ts tests/test_visualization_html_generator.ts tests/test_rag_visualization_audit_pipeline.ts tests/test_deep_interaction_design_review.ts tests/test_rag_visualization_layout.ts tests/test_api_v1_contracts.ts tests/test_route_compatibility.ts tests/test_static_route_contract.ts",
+    "test:layout": "tsx --test tests/test_layout_viewports.ts",
+    "check:core": "npm run test:contracts && npm run typecheck && npm run lint",
+    "check:all": "npm run check:core && npm run test:layout && npm run build",
+    "test:static-smoke": "npm run build --if-present && tsx --test tests/test_static_route_contract.ts",
     "rag:ingest": "tsx scripts/ingest_knowledge.ts",
     "rag:build": "tsx scripts/build_knowledge.ts",
     "rag:eval": "tsx scripts/eval_rag.ts",

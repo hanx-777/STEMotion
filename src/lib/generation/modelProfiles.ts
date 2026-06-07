@@ -10,7 +10,6 @@ export interface ModelProfile {
   apiKey: string;
   model: string;
   timeout?: number;
-  thinking?: { type: 'enabled'; budgetTokens: number };
 }
 
 export interface ModelProfilesFile {
@@ -125,7 +124,6 @@ export async function upsertModelProfile(
     apiKey,
     model: input.model.trim(),
     ...(input.timeout ? { timeout: input.timeout } : {}),
-    ...(existing?.thinking ? { thinking: existing.thinking } : {}),
   };
 
   if (options.setActive || !current.activeProfile || !current.profiles[current.activeProfile]) {

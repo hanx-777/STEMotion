@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<!-- ==================================================================
+     LONG DOCUMENT · STEMotion 系统架构层级指南
+     parchment design system · 中文版
+     ================================================================== -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>STEMotion 系统架构层级指南</title>
+<meta name="author" content="STEMotion Team">
+<meta name="description" content="STEMotion Physics Skill 六层架构详解，帮助开发者快速上手项目">
+<meta name="keywords" content="STEMotion, 架构, Next.js, RAG, 物理力学, 多智能体">
+<meta name="generator" content="Kami">
+<style>
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W04.ttf") format("truetype");
+    font-weight: 400; font-style: normal;
+  }
+  @font-face {
+    font-family: "TsangerJinKai02";
+    src: url("https://cdn.jsdelivr.net/gh/tw93/Kami@main/assets/fonts/TsangerJinKai02-W05.ttf") format("truetype");
+    font-weight: 500; font-style: normal;
+  }
+
+  @page {
+    size: A4; margin: 20mm 22mm 22mm 22mm; background: #f5f4ed;
+    @top-right {
+      content: string(section-title);
+      font-family: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 8pt; color: #6b6a64;
+    }
+    @bottom-center {
+      content: counter(page) "  ·  STEMotion 架构指南";
+      font-family: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", Georgia, serif;
+      font-size: 9pt; color: #6b6a64;
+    }
+  }
+  @page:first { @top-right { content: ""; } @bottom-center { content: ""; } }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --parchment: #f5f4ed; --ivory: #faf9f5; --near-black: #141413;
+    --dark-warm: #3d3d3a; --olive: #504e49; --stone: #6b6a64;
+    --brand: #1B365D; --border: #e8e6dc; --border-soft: #e5e3d8;
+    --tag-bg: #E4ECF5;
+    --serif: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+    --sans: var(--serif);
+    --mono: "JetBrains Mono", "SF Mono", Consolas, "TsangerJinKai02", "Source Han Serif SC", monospace;
+  }
+  html, body { background: var(--parchment); }
+  @media screen { body { max-width: 210mm; margin: 0 auto; padding: 20mm 22mm 22mm 22mm; } }
+  body {
+    color: var(--near-black); font-family: var(--serif);
+    font-size: 10.5pt; line-height: 1.55; letter-spacing: 0.3pt;
+    widows: 3; orphans: 3;
+  }
+
+  /* Cover */
+  .cover { min-height: 240mm; display: flex; flex-direction: column; justify-content: space-between; padding: 40mm 0 0 0; break-after: page; }
+  .cover-eyebrow { font-family: var(--sans); font-size: 10pt; color: var(--brand); letter-spacing: 1pt; text-transform: uppercase; margin-bottom: 18pt; }
+  .cover-title { font-size: 36pt; font-weight: 500; color: var(--near-black); line-height: 1.15; letter-spacing: 0.3pt; margin-bottom: 16pt; }
+  .cover-sub { font-family: var(--sans); font-size: 14pt; color: var(--olive); line-height: 1.5; max-width: 85%; margin-bottom: 30pt; }
+  .cover-meta { font-family: var(--sans); font-size: 10pt; color: var(--stone); line-height: 1.5; }
+  .cover-meta strong { color: var(--dark-warm); font-weight: 500; }
+
+  /* TOC */
+  .toc { break-after: page; }
+  .toc h2 { font-size: 22pt; font-weight: 500; margin-bottom: 14pt; border-left: 2.5pt solid var(--brand); border-radius: 1.5pt; padding-left: 8pt; }
+  .toc-item { display: flex; justify-content: space-between; align-items: baseline; padding: 6pt 0; border-bottom: 0.3pt dotted var(--border); font-size: 11pt; }
+  .toc-item:last-of-type { border-bottom: none; }
+  .toc-num { color: var(--brand); font-weight: 500; min-width: 30pt; }
+  .toc-title { flex: 1; color: var(--near-black); padding-left: 6pt; }
+  .toc-page { color: var(--stone); font-variant-numeric: tabular-nums; }
+
+  /* Headings */
+  h1 { font-size: 22pt; font-weight: 500; line-height: 1.2; margin: 0 0 10pt 0; border-left: 2.5pt solid var(--brand); border-radius: 1.5pt; padding-left: 8pt; color: var(--near-black); break-after: avoid; }
+  h2 { font-size: 16pt; font-weight: 500; line-height: 1.25; margin: 24pt 0 8pt 0; color: var(--near-black); break-after: avoid; string-set: section-title content(); }
+  h3 { font-size: 13pt; font-weight: 500; line-height: 1.3; margin: 18pt 0 6pt 0; color: var(--dark-warm); break-after: avoid; }
+  .chapter-num { font-family: var(--sans); font-size: 10pt; color: var(--brand); letter-spacing: 1pt; text-transform: uppercase; margin-bottom: 6pt; }
+  .chapter { break-before: page; }
+
+  /* Body */
+  p { margin: 0 0 10pt 0; line-height: 1.55; color: var(--near-black); widows: 2; orphans: 2; }
+  .lead { font-size: 12pt; line-height: 1.55; color: var(--dark-warm); margin-bottom: 14pt; }
+  .hl { color: var(--brand); font-weight: 500; }
+  strong { font-weight: 500; }
+  ul, ol { margin: 6pt 0 10pt 0; padding-left: 20pt; line-height: 1.55; }
+  ul li::marker { color: var(--brand); }
+  ol li::marker { color: var(--brand); font-weight: 500; }
+
+  /* Code */
+  code { font-family: var(--mono); font-size: 9pt; background: var(--ivory); padding: 1pt 4pt; border-radius: 2pt; color: var(--dark-warm); }
+  pre { font-family: var(--mono); font-size: 9pt; line-height: 1.5; background: var(--ivory); border-radius: 4pt; padding: 10pt 14pt; margin: 10pt 0; white-space: pre-wrap; color: var(--near-black); break-inside: avoid; }
+  pre code { background: transparent; padding: 0; font-size: inherit; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 12pt 0; break-inside: avoid; }
+  table th { text-align: left; font-weight: 500; color: var(--dark-warm); padding: 6pt 8pt; border-bottom: 1pt solid var(--border); }
+  table td { padding: 5pt 8pt; border-bottom: 0.3pt solid var(--border-soft); vertical-align: top; }
+  table.striped tbody tr:nth-child(even) td { background: var(--ivory); }
+
+  /* Callout */
+  .callout { background: var(--ivory); border-left: 2pt solid var(--brand); padding: 10pt 14pt; border-radius: 3pt; margin: 12pt 0; line-height: 1.55; break-inside: avoid; }
+  .takeaway { background: var(--ivory); border-radius: 4pt; padding: 10pt 14pt; margin: 14pt 0; break-inside: avoid; }
+  .takeaway-label { font-family: var(--sans); font-size: 9pt; color: var(--brand); letter-spacing: 0.5pt; text-transform: uppercase; margin-bottom: 4pt; }
+  .tag { display: inline-block; background: var(--tag-bg); color: var(--brand); font-family: var(--sans); font-size: 9pt; font-weight: 500; padding: 1pt 6pt; border-radius: 3pt; margin-right: 4pt; }
+  blockquote, .quote { border-left: 2pt solid var(--brand); margin: 12pt 0; padding: 4pt 0 4pt 16pt; color: var(--olive); line-height: 1.55; break-inside: avoid; }
+
+  /* Figure */
+  figure { margin: 14pt 0; break-inside: avoid; }
+  figure svg { width: 100%; height: auto; }
+  figcaption { font-family: var(--sans); font-size: 9pt; color: var(--stone); margin-top: 6pt; text-align: center; }
+
+  /* Layer card */
+  .layer-card { background: var(--ivory); border: 0.5pt solid var(--border); border-radius: 6pt; padding: 14pt 18pt; margin: 10pt 0; break-inside: avoid; }
+  .layer-card-header { display: flex; align-items: baseline; gap: 8pt; margin-bottom: 6pt; }
+  .layer-card-num { font-family: var(--mono); font-size: 9pt; color: var(--brand); letter-spacing: 0.15em; }
+  .layer-card-title { font-size: 14pt; font-weight: 500; color: var(--near-black); }
+  .layer-card-dir { font-family: var(--mono); font-size: 9pt; color: var(--stone); margin-bottom: 6pt; }
+  .layer-card p { font-size: 9.5pt; margin-bottom: 6pt; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════ COVER ═════════════ -->
+<section class="cover">
+  <div>
+    <div class="cover-eyebrow">Architecture Guide</div>
+    <div class="cover-title">STEMotion<br>系统架构层级指南</div>
+    <div class="cover-sub">六层架构 · 三条 AI 管线 · 13 个状态管理 · 快速上手项目全景</div>
+  </div>
+  <div class="cover-meta">
+    <strong>STEMotion Team</strong><br>
+    版本 V1.0.1  ·  2026.06<br>
+    基于 Next.js 16 App Router + React 19 + TypeScript
+  </div>
+</section>
+
+<!-- ═════════════ TOC ═════════════ -->
+<section class="toc">
+  <h2>目录</h2>
+  <div class="toc-item"><span class="toc-num">01</span><span class="toc-title">架构总览</span><span class="toc-page">03</span></div>
+  <div class="toc-item"><span class="toc-num">02</span><span class="toc-title">Layer 1 · 页面层 src/app/</span><span class="toc-page">04</span></div>
+  <div class="toc-item"><span class="toc-num">03</span><span class="toc-title">Layer 2 · 功能层 src/features/</span><span class="toc-page">05</span></div>
+  <div class="toc-item"><span class="toc-num">04</span><span class="toc-title">Layer 3 · 组件层 src/components/</span><span class="toc-page">06</span></div>
+  <div class="toc-item"><span class="toc-num">05</span><span class="toc-title">Layer 4 · 库层 src/lib/</span><span class="toc-page">07</span></div>
+  <div class="toc-item"><span class="toc-num">06</span><span class="toc-title">Layer 5 · 平台层 src/platform/</span><span class="toc-page">08</span></div>
+  <div class="toc-item"><span class="toc-num">07</span><span class="toc-title">Layer 6 · 共享层 src/shared/</span><span class="toc-page">08</span></div>
+  <div class="toc-item"><span class="toc-num">08</span><span class="toc-title">三条 AI 管线</span><span class="toc-page">09</span></div>
+  <div class="toc-item"><span class="toc-num">09</span><span class="toc-title">状态管理全景</span><span class="toc-page">10</span></div>
+  <div class="toc-item"><span class="toc-num">10</span><span class="toc-title">快速导航地图</span><span class="toc-page">11</span></div>
+</section>
+
+<!-- ═════════════ Ch01: 架构总览 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">01 · Overview</div>
+  <h1>架构总览</h1>
+
+  <p class="lead">
+    STEMotion 采用 <span class="hl">Next.js 模块化单体</span>架构，将代码分为六层：页面层、功能层、组件层、库层、平台层和共享层。
+    核心业务逻辑集中在 <code>src/lib/</code>（三条 AI 多智能体管线）和 <code>src/features/</code>（垂直切片），
+    <code>src/app/</code> 只负责路由和页面组装。
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="#E3E2DC"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f4ed"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- L1: Page Layer -->
+      <rect x="96" y="32" width="724" height="56" rx="4" fill="#faf9f5" stroke="#141413" stroke-width="1"/>
+      <text x="128" y="54" fill="#141413" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">01</text>
+      <text x="152" y="54" fill="#141413" font-size="12" font-weight="500" font-family="inherit">页面层 Page Layer</text>
+      <text x="152" y="74" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">src/app/ · 15 页面路由 + 双版本 API</text>
+
+      <!-- L2: Feature Layer (FOCAL) -->
+      <rect x="96" y="96" width="724" height="56" rx="4" fill="#EEF2F7" stroke="#1B365D" stroke-width="1.2"/>
+      <text x="128" y="118" fill="#1B365D" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">02 · FOCAL</text>
+      <text x="224" y="118" fill="#141413" font-size="12" font-weight="500" font-family="inherit">功能层 Feature Layer</text>
+      <text x="224" y="138" fill="#1B365D" font-size="9" font-family="'JetBrains Mono', monospace">src/features/ · 7 垂直切片 · application/ + ui/</text>
+
+      <!-- L3: Component Layer -->
+      <rect x="96" y="160" width="724" height="56" rx="4" fill="#faf9f5" stroke="#3d3d3a" stroke-width="1"/>
+      <text x="128" y="182" fill="#504e49" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">03</text>
+      <text x="152" y="182" fill="#141413" font-size="12" font-weight="500" font-family="inherit">组件层 Component Layer</text>
+      <text x="152" y="202" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">src/components/ · 8 组件域 + 12 渲染器</text>
+
+      <!-- L4: Library Layer -->
+      <rect x="96" y="224" width="724" height="72" rx="4" fill="#f0efe8" stroke="#504e49" stroke-width="1"/>
+      <text x="128" y="250" fill="#504e49" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">04 · 最重</text>
+      <text x="190" y="250" fill="#141413" font-size="12" font-weight="500" font-family="inherit">库层 Library Layer</text>
+      <text x="190" y="270" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">src/lib/ · 3 条 AI 管线 · 13 Zustand stores · RAG · 生成</text>
+      <text x="190" y="286" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">deep-interaction/ · generation/ · rag/ · stores/</text>
+
+      <!-- L5: Platform Layer -->
+      <rect x="96" y="304" width="356" height="48" rx="4" fill="#eae9e1" stroke="#b8b7b0" stroke-width="1"/>
+      <text x="128" y="324" fill="#b8b7b0" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">05</text>
+      <text x="152" y="324" fill="#141413" font-size="12" font-weight="500" font-family="inherit">平台层 Platform</text>
+      <text x="152" y="342" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">src/platform/ · HTTP + 错误类型</text>
+
+      <!-- L6: Shared Layer -->
+      <rect x="464" y="304" width="356" height="48" rx="4" fill="#eae9e1" stroke="#b8b7b0" stroke-width="1"/>
+      <text x="496" y="324" fill="#b8b7b0" font-size="7" font-family="'JetBrains Mono', monospace" letter-spacing="0.15em">06</text>
+      <text x="520" y="324" fill="#141413" font-size="12" font-weight="500" font-family="inherit">共享层 Shared</text>
+      <text x="520" y="342" fill="#504e49" font-size="9" font-family="'JetBrains Mono', monospace">src/shared/ · 共享 API 类型</text>
+
+      <!-- Left: REQUEST down -->
+      <line x1="52" y1="44" x2="52" y2="340" stroke="#504e49" stroke-width="1.2"/>
+      <path d="M 47,334 L 52,340 L 57,334" fill="none" stroke="#504e49" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="20" y="180" width="64" height="14" rx="2" fill="#f5f4ed"/>
+      <text x="52" y="191" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle" letter-spacing="0.1em">REQUEST ↓</text>
+
+      <!-- Right: RESPONSE up -->
+      <line x1="872" y1="340" x2="872" y2="44" stroke="#1B365D" stroke-width="1.4"/>
+      <path d="M 867,50 L 872,44 L 877,50" fill="none" stroke="#1B365D" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="838" y="180" width="68" height="14" rx="2" fill="#f5f4ed"/>
+      <text x="872" y="191" fill="#1B365D" font-size="8" font-family="'JetBrains Mono', monospace" text-anchor="middle" letter-spacing="0.1em">RESPONSE ↑</text>
+
+      <!-- External services -->
+      <rect x="96" y="392" width="216" height="48" rx="4" fill="#faf9f5" stroke="#6b6a64" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="128" y="416" fill="#504e49" font-size="10" font-family="inherit">OpenAI / Claude API</text>
+      <text x="128" y="432" fill="#6b6a64" font-size="8" font-family="'JetBrains Mono', monospace">模型推理</text>
+
+      <rect x="340" y="392" width="216" height="48" rx="4" fill="#faf9f5" stroke="#6b6a64" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="372" y="416" fill="#504e49" font-size="10" font-family="inherit">本地知识库</text>
+      <text x="372" y="432" fill="#6b6a64" font-size="8" font-family="'JetBrains Mono', monospace">skills/ · .stemotion/</text>
+
+      <rect x="584" y="392" width="236" height="48" rx="4" fill="#faf9f5" stroke="#6b6a64" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="616" y="416" fill="#504e49" font-size="10" font-family="inherit">Web Search Provider</text>
+      <text x="616" y="432" fill="#6b6a64" font-size="8" font-family="'JetBrains Mono', monospace">可选网络补充检索</text>
+
+      <!-- Arrows from lib to external -->
+      <line x1="254" y1="370" x2="254" y2="392" stroke="#504e49" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <line x1="448" y1="370" x2="448" y2="392" stroke="#504e49" stroke-width="0.8" stroke-dasharray="3,2"/>
+      <line x1="702" y1="370" x2="702" y2="392" stroke="#504e49" stroke-width="0.8" stroke-dasharray="3,2"/>
+
+      <!-- Legend -->
+      <line x1="40" y1="468" x2="920" y2="468" stroke="#DEDED7" stroke-width="0.8"/>
+      <rect x="40" y="482" width="14" height="10" rx="2" fill="#EEF2F7" stroke="#1B365D" stroke-width="1"/>
+      <text x="60" y="490" fill="#504e49" font-size="8.5" font-family="inherit">Focal layer (核心业务)</text>
+      <rect x="210" y="482" width="14" height="10" rx="2" fill="#faf9f5" stroke="#141413" stroke-width="1"/>
+      <text x="230" y="490" fill="#504e49" font-size="8.5" font-family="inherit">用户面层</text>
+      <rect x="330" y="482" width="14" height="10" rx="2" fill="#eae9e1" stroke="#b8b7b0" stroke-width="1"/>
+      <text x="350" y="490" fill="#504e49" font-size="8.5" font-family="inherit">基础设施</text>
+      <rect x="470" y="482" width="14" height="10" rx="2" fill="#faf9f5" stroke="#6b6a64" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="490" y="490" fill="#504e49" font-size="8.5" font-family="inherit">外部服务</text>
+    </svg>
+    <figcaption>图 1 · STEMotion 六层架构总览 — 功能层（Layer 2）为 Focal Layer，承载领域核心逻辑</figcaption>
+  </figure>
+
+  <div class="callout">
+    <strong>架构核心原则：</strong><code>src/app/</code> 只做路由和页面组装，不放业务逻辑；
+    <code>src/features/</code> 按垂直切片组织，每个 feature 有独立的 <code>application/</code>（服务）和 <code>ui/</code>（工作台组件）；
+    <code>src/lib/</code> 是最重的一层，包含三条 AI 多智能体管线和 13 个 Zustand 状态管理。
+  </div>
+</section>
+
+<!-- ═════════════ Ch02: 页面层 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">02 · Page Layer</div>
+  <h1>Layer 1 · 页面层 <code>src/app/</code></h1>
+
+  <p class="lead">
+    页面层是 Next.js App Router 的标准结构，每个目录对应一个路由。
+    页面组件本身非常薄，只负责加载对应的 feature workbench 组件。
+  </p>
+
+  <h2>主导航页面（5 个）</h2>
+
+  <table class="striped">
+    <thead><tr><th>路由</th><th>页面文件</th><th>说明</th><th>加载的 Feature</th></tr></thead>
+    <tbody>
+      <tr><td><code>/learn</code></td><td><code>learn/page.tsx</code></td><td>学生学习主入口</td><td><code>features/rag/ui/RagSurfacePage</code></td></tr>
+      <tr><td><code>/teach</code></td><td><code>teach/page.tsx</code></td><td>教师教学主入口</td><td><code>features/rag/ui/RagSurfacePage</code></td></tr>
+      <tr><td><code>/lab</code></td><td><code>lab/page.tsx</code></td><td>可视化实验</td><td><code>features/deep-interaction/ui/LabSurfacePage</code></td></tr>
+      <tr><td><code>/knowledge</code></td><td><code>knowledge/page.tsx</code></td><td>知识库健康度</td><td><code>features/knowledge/knowledgeHealth</code></td></tr>
+      <tr><td><code>/assets</code></td><td><code>assets/page.tsx</code></td><td>教学资产管理</td><td><code>features/assets/ui/AssetsWorkbench</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>兼容路由（6 个，重定向到新地址）</h2>
+
+  <table>
+    <thead><tr><th>旧路由</th><th>重定向到</th></tr></thead>
+    <tbody>
+      <tr><td><code>/student</code></td><td><code>/learn</code></td></tr>
+      <tr><td><code>/teacher</code></td><td><code>/teach</code></td></tr>
+      <tr><td><code>/visualization</code></td><td><code>/lab</code></td></tr>
+      <tr><td><code>/rag</code></td><td><code>/learn</code></td></tr>
+      <tr><td><code>/interactions</code></td><td><code>/assets</code></td></tr>
+      <tr><td><code>/experiments</code></td><td><code>/assets</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>高级页面（不在主导航展示）</h2>
+  <ul>
+    <li><code>/</code> — 标准实验室模式，加载 <code>ExperimentConfig</code></li>
+    <li><code>/deep-interaction</code> — 深度交互生成工作台</li>
+    <li><code>/generate</code> — 内容生成</li>
+    <li><code>/player</code> — 内容播放器</li>
+    <li><code>/settings</code> — 模型与 API 设置</li>
+  </ul>
+
+  <h2>API 路由（双版本并存）</h2>
+
+  <table class="striped">
+    <thead><tr><th>功能域</th><th>Legacy <code>/api/</code></th><th>V1 <code>/api/v1/</code></th></tr></thead>
+    <tbody>
+      <tr><td>RAG 问答</td><td><code>rag/ask</code></td><td><code>rag/ask</code> + <code>rag/visualization/generate</code></td></tr>
+      <tr><td>学科管理</td><td><code>subjects</code> + <code>subjects/default</code></td><td>同左</td></tr>
+      <tr><td>模型配置</td><td><code>model-profiles</code> + <code>models</code></td><td>同左 + <code>[id]</code> 动态路由</td></tr>
+      <tr><td>深度交互</td><td><code>deep-interaction/*</code></td><td>同左</td></tr>
+      <tr><td>实验生成</td><td><code>generate</code></td><td>—（仅 legacy）</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Ch03: 功能层 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">03 · Feature Layer</div>
+  <h1>Layer 2 · 功能层 <code>src/features/</code></h1>
+
+  <p class="lead">
+    功能层采用<span class="hl">垂直切片</span>设计，每个 feature 有独立的 <code>application/</code>（服务逻辑）和 <code>ui/</code>（工作台组件）。
+    页面层只负责加载对应的 workbench，不直接处理业务。
+  </p>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">01</span>
+      <span class="layer-card-title">rag — RAG 核心</span>
+    </div>
+    <div class="layer-card-dir">src/features/rag/</div>
+    <p>系统最核心的 feature。包含 RAG 问答服务（<code>application/ragAskService.ts</code>）、客户端调用（<code>client/ragClient.ts</code>）、请求/响应契约（<code>contracts.ts</code>）、会话状态管理（<code>state/ragSessionStore.ts</code>）、错误归因（<code>state/ragAskErrorAttribution.ts</code>）、可视化流程（<code>state/visualizationFlow.ts</code>），以及学生工作台（<code>ui/RagWorkbench.tsx</code>）和学科控制台（<code>ui/SubjectRagConsole.tsx</code>）。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">02</span>
+      <span class="layer-card-title">deep-interaction — 深度交互</span>
+    </div>
+    <div class="layer-card-dir">src/features/deep-interaction/</div>
+    <p>承载 Guided Planning → LearningBlueprint → 多 Agent 评审 → 生成的完整管线。包含深度交互服务（<code>application/deepInteractionService.ts</code>）和两个 UI 入口：深度交互工作台（<code>ui/DeepInteractionWorkbench.tsx</code>）和可视化实验页面（<code>ui/LabSurfacePage.tsx</code>）。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">03</span>
+      <span class="layer-card-title">subjects — 学科管理</span>
+    </div>
+    <div class="layer-card-dir">src/features/subjects/</div>
+    <p>管理学科 Skill 的加载、切换和配置。核心服务：<code>application/subjectService.ts</code>，底层依赖 <code>src/lib/subjects/subject_manager.ts</code>。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">04</span>
+      <span class="layer-card-title">settings — 模型配置</span>
+    </div>
+    <div class="layer-card-dir">src/features/settings/</div>
+    <p>管理 OpenAI / Claude 模型 profile 的 CRUD 和切换。服务层：<code>application/modelProfileService.ts</code>，UI：<code>ui/SettingsWorkbench.tsx</code>。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">05</span>
+      <span class="layer-card-title">knowledge — 知识库健康度</span>
+    </div>
+    <div class="layer-card-dir">src/features/knowledge/</div>
+    <p>展示各学科知识库的索引状态、源文件数、chunk 数和覆盖范围。核心文件：<code>knowledgeHealth.ts</code>。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">06</span>
+      <span class="layer-card-title">assets — 教学资产管理</span>
+    </div>
+    <div class="layer-card-dir">src/features/assets/</div>
+    <p>管理本地交互库的 artifact。UI：<code>ui/AssetsWorkbench.tsx</code>，底层依赖 <code>src/lib/stores/artifactStore</code>。</p>
+  </div>
+
+  <div class="layer-card">
+    <div class="layer-card-header">
+      <span class="layer-card-num">07</span>
+      <span class="layer-card-title">rag-lab-bridge — RAG → Lab 桥接</span>
+    </div>
+    <div class="layer-card-dir">src/features/rag-lab-bridge/</div>
+    <p>将 RAG 输出桥接到 Lab 实验生成。核心文件：<code>buildLabPrompt.ts</code>，将 RAG 的结构化回答转换为深度交互的实验 prompt。</p>
+  </div>
+</section>
+
+<!-- ═════════════ Ch04: 组件层 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">04 · Component Layer</div>
+  <h1>Layer 3 · 组件层 <code>src/components/</code></h1>
+
+  <p class="lead">
+    组件层按<span class="hl">领域域</span>组织，不采用原子设计。每个域包含一组相关 UI 组件和专用渲染器。
+  </p>
+
+  <table class="striped">
+    <thead><tr><th>组件域</th><th>关键组件</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>deep-interaction/</strong></td>
+        <td>Shell, Stage, RightPanel, GuidedPlanningPanel, AgentReviewPanel, BlueprintPreview, QualityExplanationPanel</td>
+        <td>深度交互工作台的全部 UI 面板，17 个组件</td>
+      </tr>
+      <tr>
+        <td><strong>deep-interaction/renderers/</strong></td>
+        <td>Game, HtmlWidget, MindMap, Simulation, ThreeDVisualization, RagVisualizationArtifact</td>
+        <td>6 种 artifact 渲染器</td>
+      </tr>
+      <tr>
+        <td><strong>experiment/</strong></td>
+        <td>Canvas, Stage, AssistantPanel, FormulaPanel, MetricsPanel, ParameterPanel, PlaybackControls, QuizPanel</td>
+        <td>标准实验室模式的交互面板</td>
+      </tr>
+      <tr>
+        <td><strong>experiment/renderers/</strong></td>
+        <td>InclinedPlane, InteractiveHtml</td>
+        <td>2 种实验渲染器</td>
+      </tr>
+      <tr>
+        <td><strong>visualization/</strong></td>
+        <td>VisualizationRenderer, ProjectileMotion, ForceDiagram, FunctionGraph, AlgorithmTrace</td>
+        <td>5 种可视化渲染器（物理轨迹、力学图、函数图等）</td>
+      </tr>
+      <tr>
+        <td><strong>layout/</strong></td>
+        <td>AppShell, I18nProvider, ModelProfileSwitcher</td>
+        <td>全局布局、国际化、模型切换器</td>
+      </tr>
+      <tr>
+        <td><strong>rag/</strong></td>
+        <td>SubjectRagConsole</td>
+        <td>RAG 学科控制台</td>
+      </tr>
+      <tr>
+        <td><strong>settings/</strong></td>
+        <td>ModelSettingsConsole</td>
+        <td>模型设置控制台</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>渲染器架构：</strong>系统共有 <span class="hl">12 个专用渲染器</span>，分别处理不同类型的 artifact：
+    游戏、HTML Widget、思维导图、模拟、3D 可视化、RAG 可视化、斜面物理、交互 HTML、抛物线运动、力学图、函数图、算法追踪。
+    渲染器通过 <code>src/lib/deep-interaction/rendererRegistry.ts</code> 注册和分发。
+  </div>
+</section>
+
+<!-- ═════════════ Ch05: 库层 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">05 · Library Layer</div>
+  <h1>Layer 4 · 库层 <code>src/lib/</code></h1>
+
+  <p class="lead">
+    库层是整个系统<span class="hl">最重的一层</span>，包含三条 AI 多智能体管线、13 个 Zustand 状态管理、RAG 检索引擎和所有业务逻辑。
+  </p>
+
+  <h2>模块总览</h2>
+
+  <table class="striped">
+    <thead><tr><th>模块</th><th>职责</th><th>核心文件数</th></tr></thead>
+    <tbody>
+      <tr><td><strong>deep-interaction/</strong></td><td>深度交互管线：分类、验证、渲染注册、Agent 流水线、回放引擎、prompt 模板、已验证实验模板</td><td>30+</td></tr>
+      <tr><td><strong>deep-interaction/agents/</strong></td><td>10 个专用 Agent：guidedPlanning, judge, learningDesign, pedagogyEvaluator, repair, runtimeEvaluator, safetyEvaluator, subjectSchemaValidator, templateCustomization, uxEvaluator</td><td>10</td></tr>
+      <tr><td><strong>deep-interaction/prompts/</strong></td><td>5 类内容的 prompt 模板（diagram, game, rag-visualization, simulation, visualization3d），每类含 system.md + user.md</td><td>11</td></tr>
+      <tr><td><strong>deep-interaction/verified-experiments/</strong></td><td>4 个预构建实验模板（物理欧姆定律、数学二次函数、化学酸碱滴定、生物有丝分裂）+ 匹配器</td><td>6</td></tr>
+      <tr><td><strong>generation/</strong></td><td>实验生成管线：LLM 客户端、prompt 模板、JSON 解析、HTML 安全、mock 生成器</td><td>9</td></tr>
+      <tr><td><strong>generation/agents/</strong></td><td>3 个 Agent：experimentPlanner, teacherAction, widgetCode</td><td>3</td></tr>
+      <tr><td><strong>rag/</strong></td><td>RAG 管线：检索器、混合检索、向量存储、关键词索引、文档加载、分块、上下文构建、证据组装、引用、查询规划、质量审查、数学渲染、回答协议</td><td>22</td></tr>
+      <tr><td><strong>rag/agents/</strong></td><td>多 Agent 编排器 + 7 个审查 Agent（引用依据、证据充分性、公式可渲染性、数值检查、教学法、物理推理、安全边界）</td><td>11</td></tr>
+      <tr><td><strong>rag/visualization/</strong></td><td>可视化生成子管线：编排器、规划 Agent、简报 Agent、决策 Agent、HTML 生成器、质量检查、审计管线</td><td>15</td></tr>
+      <tr><td><strong>stores/</strong></td><td>13 个 Zustand 状态管理</td><td>13</td></tr>
+      <tr><td><strong>subjects/</strong></td><td>学科管理器、默认学科、学科 schema</td><td>3</td></tr>
+      <tr><td><strong>animation/</strong></td><td>GSAP 动画 token 和 hooks</td><td>3</td></tr>
+      <tr><td><strong>i18n/</strong></td><td>国际化（中文 + 英文）</td><td>3</td></tr>
+      <tr><td><strong>其他</strong></td><td>config, schema, simulation, examples, progress, playback, utils, logger</td><td>15</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Ch06-07: 平台层 + 共享层 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">06-07 · Platform & Shared</div>
+  <h1>Layer 5-6 · 平台层与共享层</h1>
+
+  <p class="lead">
+    这两层非常薄，只放跨功能共享的基础设施代码。
+  </p>
+
+  <h2>平台层 <code>src/platform/</code></h2>
+
+  <table>
+    <thead><tr><th>文件</th><th>职责</th></tr></thead>
+    <tbody>
+      <tr><td><code>api/http.ts</code></td><td>HTTP 客户端封装，统一请求/响应处理</td></tr>
+      <tr><td><code>errors.ts</code></td><td>错误类型定义，统一错误处理契约</td></tr>
+    </tbody>
+  </table>
+
+  <h2>共享层 <code>src/shared/</code></h2>
+
+  <table>
+    <thead><tr><th>文件</th><th>职责</th></tr></thead>
+    <tbody>
+      <tr><td><code>api/types.ts</code></td><td>跨功能共享的 API 类型定义</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>为什么这么薄？</strong>STEMotion 的业务逻辑集中在 <code>src/lib/</code>（AI 管线）和 <code>src/features/</code>（垂直切片），
+    平台层和共享层只承载真正需要跨 feature 共享的基础设施。这种设计避免了"共享层膨胀"的问题。
+  </div>
+</section>
+
+<!-- ═════════════ Ch08: 三条 AI 管线 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">08 · AI Pipelines</div>
+  <h1>三条 AI 多智能体管线</h1>
+
+  <p class="lead">
+    系统包含三条独立的 AI 管线，每条都是<span class="hl">多智能体协作</span>架构，而非单次 LLM 调用。
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="dots2" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="#E3E2DC"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f4ed"/>
+      <rect width="100%" height="100%" fill="url(#dots2)" opacity="0.55"/>
+
+      <!-- Lane backgrounds -->
+      <rect x="40" y="32" width="880" height="108" rx="4" fill="#F0F0E9"/>
+      <rect x="40" y="148" width="880" height="108" fill="#EEF2F7" opacity="0.40" rx="4"/>
+      <rect x="40" y="264" width="880" height="108" rx="4" fill="#F0F0E9"/>
+
+      <!-- Lane dividers -->
+      <line x1="40" y1="148" x2="920" y2="148" stroke="#1B365D" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <line x1="40" y1="264" x2="920" y2="264" stroke="#e8e6dc" stroke-width="0.8" stroke-dasharray="4,3"/>
+
+      <!-- Lane labels -->
+      <text x="56" y="56" fill="#1B365D" font-size="10" font-weight="500" font-family="inherit">RAG 管线</text>
+      <text x="56" y="72" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace">rag/ · 22 文件 + 11 Agent</text>
+
+      <text x="56" y="172" fill="#1B365D" font-size="10" font-weight="500" font-family="inherit">深度交互管线</text>
+      <text x="56" y="188" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace">deep-interaction/ · 30+ 文件 + 10 Agent</text>
+
+      <text x="56" y="288" fill="#1B365D" font-size="10" font-weight="500" font-family="inherit">实验生成管线</text>
+      <text x="56" y="304" fill="#504e49" font-size="8" font-family="'JetBrains Mono', monospace">generation/ · 12 文件 + 3 Agent</text>
+
+      <!-- RAG pipeline steps -->
+      <rect x="56" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="106" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">查询规划</text>
+      <line x1="156" y1="98" x2="176" y2="98" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 172,95 L 176,98 L 172,101" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="180" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="230" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">混合检索</text>
+      <line x1="280" y1="98" x2="300" y2="98" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 296,95 L 300,98 L 296,101" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="304" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="354" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">证据组装</text>
+      <line x1="404" y1="98" x2="424" y2="98" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 420,95 L 424,98 L 420,101" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="428" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="478" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">多 Agent 评审</text>
+      <line x1="528" y1="98" x2="548" y2="98" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 544,95 L 548,98 L 544,101" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="552" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="602" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">LLM 生成</text>
+      <line x1="652" y1="98" x2="672" y2="98" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 668,95 L 672,98 L 668,101" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="676" y="82" width="100" height="32" rx="3" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="726" y="102" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">可视化生成</text>
+
+      <!-- Deep Interaction pipeline steps -->
+      <rect x="56" y="198" width="100" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="106" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">Guided Planning</text>
+      <line x1="156" y1="214" x2="176" y2="214" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 172,211 L 176,214 L 172,217" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="180" y="198" width="100" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="230" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">Blueprint</text>
+      <line x1="280" y1="214" x2="300" y2="214" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 296,211 L 300,214 L 296,217" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="304" y="198" width="100" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="354" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">Schema 验证</text>
+      <line x1="404" y1="214" x2="424" y2="214" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 420,211 L 424,214 L 420,217" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="428" y="198" width="116" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="486" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">模板匹配/生成</text>
+      <line x1="544" y1="214" x2="564" y2="214" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 560,211 L 564,214 L 560,217" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="568" y="198" width="116" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="626" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">5 Agent 评审</text>
+      <line x1="684" y1="214" x2="704" y2="214" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 700,211 L 704,214 L 700,217" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="708" y="198" width="100" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="758" y="218" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">QualityReport</text>
+
+      <!-- Generation pipeline steps -->
+      <rect x="56" y="314" width="120" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="116" y="334" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">ExperimentPlanner</text>
+      <line x1="176" y1="330" x2="196" y2="330" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 192,327 L 196,330 L 192,333" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="200" y="314" width="120" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="260" y="334" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">TeacherAction</text>
+      <line x1="320" y1="330" x2="340" y2="330" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 336,327 L 340,330 L 336,333" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="344" y="314" width="120" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="404" y="334" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">WidgetCode</text>
+      <line x1="464" y1="330" x2="484" y2="330" stroke="#504e49" stroke-width="0.8"/>
+      <path d="M 480,327 L 484,330 L 480,333" fill="none" stroke="#504e49" stroke-width="1"/>
+
+      <rect x="488" y="314" width="120" height="32" rx="3" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="548" y="334" fill="#141413" font-size="8" text-anchor="middle" font-family="inherit">HTML 安全检查</text>
+
+      <!-- Legend -->
+      <line x1="40" y1="388" x2="920" y2="388" stroke="#DEDED7" stroke-width="0.8"/>
+      <rect x="40" y="394" width="14" height="8" rx="2" fill="#EEF2F7" stroke="#1B365D" stroke-width="0.8"/>
+      <text x="60" y="400" fill="#504e49" font-size="8" font-family="inherit">Focal pipeline (RAG)</text>
+      <rect x="210" y="394" width="14" height="8" rx="2" fill="#faf9f5" stroke="#504e49" stroke-width="0.8"/>
+      <text x="230" y="400" fill="#504e49" font-size="8" font-family="inherit">其他管线步骤</text>
+    </svg>
+    <figcaption>图 2 · 三条 AI 多智能体管线的处理流程 — RAG 管线为 Focal，深度交互管线最复杂（10 Agent）</figcaption>
+  </figure>
+
+  <h2>管线对比</h2>
+
+  <table class="striped">
+    <thead><tr><th>维度</th><th>RAG 管线</th><th>深度交互管线</th><th>实验生成管线</th></tr></thead>
+    <tbody>
+      <tr><td>Agent 数量</td><td>11（编排器 + 7 审查 + judge + revision + evidence）</td><td>10（planning + learning + safety + pedagogy + UX + repair + judge + schema + template + runtime）</td><td>3（planner + teacher + widget）</td></tr>
+      <tr><td>输入</td><td>用户问题 + subjectId + taskType</td><td>用户需求描述</td><td>ExperimentConfig</td></tr>
+      <tr><td>输出</td><td>结构化回答 + citations + visualization_hint</td><td>HTML/SVG/Canvas 交互组件 + QualityReport</td><td>HTML 实验页面</td></tr>
+      <tr><td>核心文件</td><td><code>rag_pipeline.ts</code></td><td><code>agentWidgetPipeline.ts</code></td><td><code>agentPipeline.ts</code></td></tr>
+      <tr><td>入口</td><td><code>/api/v1/rag/ask</code></td><td><code>/api/v1/deep-interaction/*</code></td><td><code>/api/generate</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═════════════ Ch09: 状态管理 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">09 · State Management</div>
+  <h1>状态管理全景</h1>
+
+  <p class="lead">
+    系统使用 <span class="hl">Zustand</span> 作为状态管理方案，共 13 个 store，覆盖实验、交互、回放、RAG 会话、生成进度等维度。
+  </p>
+
+  <table class="striped">
+    <thead><tr><th>Store</th><th>职责</th><th>关联页面</th></tr></thead>
+    <tbody>
+      <tr><td><code>experimentStore</code></td><td>当前实验配置和状态</td><td>/, /lab</td></tr>
+      <tr><td><code>interactionSessionStore</code></td><td>交互会话管理</td><td>/lab, /deep-interaction</td></tr>
+      <tr><td><code>interactionPersistence</code></td><td>交互持久化（localStorage）</td><td>/assets</td></tr>
+      <tr><td><code>artifactStore</code></td><td>artifact 管理</td><td>/assets</td></tr>
+      <tr><td><code>playbackStore</code></td><td>回放控制</td><td>/player</td></tr>
+      <tr><td><code>ragSessionStore</code></td><td>RAG 会话状态</td><td>/learn, /teach</td></tr>
+      <tr><td><code>generationProgressStore</code></td><td>生成进度跟踪</td><td>/lab, /deep-interaction</td></tr>
+      <tr><td><code>deepInteractionUIStore</code></td><td>深度交互 UI 状态</td><td>/lab, /deep-interaction</td></tr>
+      <tr><td><code>deepWidgetIframeStore</code></td><td>深度 Widget iframe 状态</td><td>/lab</td></tr>
+      <tr><td><code>widgetIframeStore</code></td><td>标准 Widget iframe 状态</td><td>/</td></tr>
+      <tr><td><code>assistantStore</code></td><td>助手面板状态</td><td>/, /lab</td></tr>
+      <tr><td><code>researchLogStore</code></td><td>研究日志记录</td><td>全局</td></tr>
+      <tr><td><code>toastStore</code></td><td>Toast 通知</td><td>全局</td></tr>
+      <tr><td><code>uiStore</code></td><td>全局 UI 状态（侧边栏等）</td><td>全局</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>持久化策略：</strong><code>interactionPersistence</code> 使用 Zustand persist 中间件将 artifact 数据写入 localStorage，
+    其余 store 为运行时内存状态。页面刷新后，persist 的数据自动恢复。
+  </div>
+</section>
+
+<!-- ═════════════ Ch10: 快速导航地图 ═════════════ -->
+<section class="chapter">
+  <div class="chapter-num">10 · Quick Reference</div>
+  <h1>快速导航地图</h1>
+
+  <p class="lead">
+    当你需要修改某个功能时，按以下路径快速定位代码。
+  </p>
+
+  <h2>按场景定位</h2>
+
+  <table class="striped">
+    <thead><tr><th>我想修改…</th><th>去这里</th><th>关键文件</th></tr></thead>
+    <tbody>
+      <tr><td>学生学习页面的 UI</td><td><code>src/features/rag/ui/</code></td><td><code>RagWorkbench.tsx</code>, <code>SubjectRagConsole.tsx</code></td></tr>
+      <tr><td>RAG 问答的核心逻辑</td><td><code>src/lib/rag/</code></td><td><code>rag_pipeline.ts</code>, <code>retriever.ts</code></td></tr>
+      <tr><td>RAG 检索策略</td><td><code>src/lib/rag/</code></td><td><code>hybrid_retriever.ts</code>, <code>vector_index.ts</code>, <code>keyword_index.ts</code></td></tr>
+      <tr><td>RAG 回答质量审查</td><td><code>src/lib/rag/agents/</code></td><td><code>rag_multi_agent_orchestrator.ts</code>, <code>reviewers/</code></td></tr>
+      <tr><td>可视化实验生成</td><td><code>src/lib/rag/visualization/</code></td><td><code>orchestrator.ts</code>, <code>htmlGenerator.ts</code></td></tr>
+      <tr><td>深度交互的 Agent 逻辑</td><td><code>src/lib/deep-interaction/agents/</code></td><td>10 个 Agent 文件</td></tr>
+      <tr><td>深度交互的 prompt 模板</td><td><code>src/lib/deep-interaction/prompts/</code></td><td>5 类内容的 system.md + user.md</td></tr>
+      <tr><td>实验生成管线</td><td><code>src/lib/generation/</code></td><td><code>agentPipeline.ts</code>, <code>agents/</code></td></tr>
+      <tr><td>学科 Skill 配置</td><td><code>skills/{subject}/</code></td><td><code>skill.yaml</code>, <code>system_prompt.md</code></td></tr>
+      <tr><td>学科管理逻辑</td><td><code>src/lib/subjects/</code></td><td><code>subject_manager.ts</code></td></tr>
+      <tr><td>模型配置页面</td><td><code>src/features/settings/</code></td><td><code>modelProfileService.ts</code>, <code>SettingsWorkbench.tsx</code></td></tr>
+      <tr><td>知识库索引构建</td><td><code>scripts/</code></td><td><code>ingest_knowledge.ts</code>, <code>build_knowledge.ts</code></td></tr>
+      <tr><td>API 路由</td><td><code>src/app/api/v1/</code></td><td>各子目录的 <code>route.ts</code></td></tr>
+      <tr><td>全局布局和导航</td><td><code>src/components/layout/</code></td><td><code>AppShell.tsx</code></td></tr>
+      <tr><td>物理渲染器</td><td><code>src/components/visualization/</code></td><td><code>ProjectileMotionRenderer.tsx</code> 等</td></tr>
+      <tr><td>Zustand 状态管理</td><td><code>src/lib/stores/</code></td><td>13 个 store 文件</td></tr>
+      <tr><td>国际化</td><td><code>src/lib/i18n/</code></td><td><code>zh.json</code>, <code>en.json</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>按文件类型定位</h2>
+
+  <table>
+    <thead><tr><th>文件类型</th><th>目录</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>页面路由</td><td><code>src/app/*/page.tsx</code></td><td>每个路由一个 page.tsx</td></tr>
+      <tr><td>API 路由</td><td><code>src/app/api/*/route.ts</code></td><td>每个 API 端点一个 route.ts</td></tr>
+      <tr><td>Feature 服务</td><td><code>src/features/*/application/*.ts</code></td><td>业务服务逻辑</td></tr>
+      <tr><td>Feature UI</td><td><code>src/features/*/ui/*.tsx</code></td><td>工作台组件</td></tr>
+      <tr><td>共享组件</td><td><code>src/components/**/*.tsx</code></td><td>按领域域组织</td></tr>
+      <tr><td>AI Agent</td><td><code>src/lib/*/agents/*.ts</code></td><td>多智能体管线中的 Agent</td></tr>
+      <tr><td>Prompt 模板</td><td><code>src/lib/*/prompts/**/*.md</code></td><td>Markdown 格式的 prompt</td></tr>
+      <tr><td>状态管理</td><td><code>src/lib/stores/*.ts</code></td><td>Zustand store</td></tr>
+      <tr><td>学科配置</td><td><code>skills/*/skill.yaml</code></td><td>学科 Skill 配置</td></tr>
+      <tr><td>知识库源文档</td><td><code>skills/*/knowledge_base/sources/*.md</code></td><td>课程知识文档</td></tr>
+      <tr><td>测试文件</td><td><code>tests/*.ts</code></td><td>38 个测试文件</td></tr>
+      <tr><td>构建脚本</td><td><code>scripts/*.ts</code></td><td>ingest, build, eval, query</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaway">
+    <div class="takeaway-label">记住这个口诀</div>
+    <strong>页面薄、功能切、组件按域排、库层最重三条线、平台共享只两行。</strong><br>
+    <code>src/app/</code> 只管路由 → <code>src/features/</code> 垂直切片 → <code>src/components/</code> 按领域 → <code>src/lib/</code> AI 管线 + 状态 → <code>src/platform/</code> + <code>src/shared/</code> 基础设施。
+  </div>
+</section>
+
+</body>
+</html>

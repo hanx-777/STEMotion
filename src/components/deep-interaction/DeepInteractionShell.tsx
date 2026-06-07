@@ -470,16 +470,16 @@ export default function DeepInteractionShell() {
   const selectedMeta = interactionTypeMeta[generationType];
 
   return (
-    <div className="flex h-full min-h-0 bg-slate-50 text-slate-900">
-      <aside ref={shellSidebarRef} className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-        <div data-deep-shell-motion className="border-b border-slate-100 p-5">
-          <h1 className="text-lg font-black">深度交互模式</h1>
-          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+    <div data-lab-workbench data-deep-layout-shell className="stemotion-page flex h-full min-h-0 text-[var(--stemotion-ink)]">
+      <aside ref={shellSidebarRef} className="hidden w-56 shrink-0 border-r border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] 2xl:flex 2xl:flex-col">
+        <div data-deep-shell-motion className="border-b border-[var(--stemotion-border)] p-4">
+          <h1 className="text-lg font-bold">深度交互模式</h1>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--stemotion-muted)]">
             先选择交互方式，再输入学习主题。系统会生成可运行、可播放、可继续修改的互动学习页。
           </p>
           <Link
-            href="/interactions"
-            className="mt-4 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+            href="/assets"
+            className="stemotion-pressable mt-3 inline-flex rounded-lg bg-[var(--stemotion-primary)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--stemotion-primary-strong)]"
           >
             打开交互库
           </Link>
@@ -492,10 +492,10 @@ export default function DeepInteractionShell() {
             <SessionList sessions={visibleSessions} currentSessionId={visibleCurrentSessionId} />
           </div>
           <div data-deep-shell-motion>
-            <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">当前会话交互</div>
+            <div className="mb-2 text-xs font-bold text-[var(--stemotion-muted)]">当前会话交互</div>
             <div className="space-y-2">
               {artifacts.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-200 p-3 text-xs text-slate-400">
+                <p className="rounded-lg border border-dashed border-[var(--stemotion-border)] bg-[#fbfaf6] p-3 text-xs text-[var(--stemotion-muted)]">
                   当前会话还没有生成交互。
                 </p>
               ) : (
@@ -509,13 +509,13 @@ export default function DeepInteractionShell() {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className={`border-b px-4 py-2 text-xs font-bold ${selectedMeta.accent}`}>
+      <main data-deep-main-stage className="flex min-w-0 flex-1 flex-col">
+        <div className={`border-b px-4 py-1.5 text-xs font-bold ${selectedMeta.accent}`}>
           当前生成方式：{selectedMeta.label}
         </div>
-        <div className="custom-scrollbar flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {!visibleCurrentSession && (
-            <div className="p-4">
+            <div className="shrink-0 p-3">
               <PhysicsCaseCards onSelect={(p) => setPendingPrompt(p)} />
             </div>
           )}
@@ -524,7 +524,10 @@ export default function DeepInteractionShell() {
         <PlaybackControlBar artifact={currentArtifact} />
       </main>
 
-      <aside className="hidden w-96 shrink-0 border-l border-slate-200 bg-white xl:block">
+      <aside
+        data-deep-right-panel
+        className="hidden w-[clamp(260px,22vw,300px)] max-w-[28vw] shrink-0 border-l border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] xl:block"
+      >
         <DeepInteractionRightPanel
           selectedType={generationType}
           currentArtifact={currentArtifact}
@@ -536,17 +539,31 @@ export default function DeepInteractionShell() {
         />
       </aside>
 
-      <div className="fixed inset-x-3 bottom-24 z-40 xl:hidden">
-        <DeepInteractionRightPanel
-          selectedType={generationType}
-          currentArtifact={currentArtifact}
-          currentSession={visibleCurrentSession}
-          isGenerating={isGenerating}
-          isFollowingUp={isFollowingUp}
-          mobile
-          onGenerate={generate}
-          onFollowUp={followUp}
-        />
+      <div data-deep-mobile-panel className="fixed inset-x-3 bottom-20 z-40 xl:hidden">
+        <details
+          className="group overflow-hidden rounded-xl border border-[var(--stemotion-border)] bg-[var(--stemotion-surface)] shadow-2xl"
+          open={!currentArtifact}
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-bold text-[var(--stemotion-ink)] [&::-webkit-details-marker]:hidden">
+            <span>AI 交互生成</span>
+            <span className="rounded-md border border-[var(--stemotion-border)] bg-[#fbfaf6] px-2 py-1 text-[11px] font-semibold text-[var(--stemotion-muted)] group-open:hidden">
+              展开
+            </span>
+            <span className="hidden rounded-md border border-[var(--stemotion-border)] bg-[#fbfaf6] px-2 py-1 text-[11px] font-semibold text-[var(--stemotion-muted)] group-open:inline">
+              收起
+            </span>
+          </summary>
+          <DeepInteractionRightPanel
+            selectedType={generationType}
+            currentArtifact={currentArtifact}
+            currentSession={visibleCurrentSession}
+            isGenerating={isGenerating}
+            isFollowingUp={isFollowingUp}
+            mobile
+            onGenerate={generate}
+            onFollowUp={followUp}
+          />
+        </details>
       </div>
     </div>
   );

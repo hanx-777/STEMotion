@@ -54,8 +54,7 @@ export async function reviseRagAnswer(input: {
         },
       ],
       temperature: 0.1,
-      maxTokens: 16384,
-      stream: false,
+      requestPreset: 'revision',
     });
 
     const parsed = parseJsonResponse(raw) as RevisionJsonShape;

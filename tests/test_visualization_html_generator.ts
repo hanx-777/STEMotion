@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  HTML_GENERATION_SYSTEM_PROMPT,
   HTML_GENERATION_MAX_TOKENS,
+  buildHtmlGenerationPrompt,
   generateInteractiveHtml,
 } from '../src/lib/rag/visualization/htmlGenerator';
+import { ARTIFACT_DESIGN_CONTRACT_MARKER } from '../src/lib/generation/artifactDesignContract';
 import { LlmTruncationError } from '../src/lib/generation/llmClient';
 
 test('HTML_GENERATION_MAX_TOKENS is at least 32k to fit a self-contained interactive widget', () => {
@@ -11,9 +14,9 @@ test('HTML_GENERATION_MAX_TOKENS is at least 32k to fit a self-contained interac
 });
 
 test('generateInteractiveHtml passes HTML_GENERATION_MAX_TOKENS to the underlying LLM call', async () => {
-  let observedMaxTokens = -1;
-  const stubGenerate = async (opts: { maxTokens?: number }) => {
-    observedMaxTokens = opts.maxTokens ?? -1;
+  let observedPreset = '';
+  const stubGenerate = async (opts: { requestPreset?: string }) => {
+    observedPreset = opts.requestPreset ?? '';
     return '<!DOCTYPE html><html><head><title>x</title></head><body><script>1;</script></body></html>';
   };
 
@@ -27,7 +30,31 @@ test('generateInteractiveHtml passes HTML_GENERATION_MAX_TOKENS to the underlyin
     { generate: stubGenerate as never },
   );
 
-  assert.equal(observedMaxTokens, HTML_GENERATION_MAX_TOKENS);
+  assert.equal(observedPreset, 'artifact');
+});
+
+test('HTML generation prompt includes first-screen and stage/sidebar layout constraints', () => {
+  const prompt = buildHtmlGenerationPrompt({
+    question: '初速度 8m/s，抛射角 35°，观察轨迹和关键运动量',
+    answerText: '射程和最大高度由初速度、角度、重力加速度共同决定。',
+    visualizationType: 'projectile_motion',
+    extractedParameters: { v0: 8, angle: 35, g: 9.8 },
+  });
+
+  assert.match(prompt, /1366x768/);
+  assert.match(prompt, /1440x900/);
+  assert.match(prompt, /1920x1080/);
+  assert.match(prompt, /首屏|first-screen|first screen/i);
+  assert.match(prompt, /65%-75%/);
+  assert.match(prompt, /right explanation\/sidebar|右侧说明栏/);
+  assert.match(prompt, /nested scroll|嵌套滚动/i);
+  assert.match(prompt, new RegExp(ARTIFACT_DESIGN_CONTRACT_MARKER));
+  assert.match(prompt, /STEMOTION_RAG_VISUALIZATION_DESIGN_CONTEXT/);
+  assert.match(prompt, /STEMotion visual vocabulary/i);
+  assert.match(prompt, /anti-filler/i);
+  assert.match(prompt, /problem-specific interaction/i);
+  assert.match(HTML_GENERATION_SYSTEM_PROMPT, new RegExp(ARTIFACT_DESIGN_CONTRACT_MARKER));
+  assert.match(HTML_GENERATION_SYSTEM_PROMPT, /STEMOTION_RAG_VISUALIZATION_DESIGN_CONTEXT/);
 });
 
 test('generateInteractiveHtml recovers truncated output via patchTruncatedHtml', async () => {

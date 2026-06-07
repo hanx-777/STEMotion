@@ -57,7 +57,7 @@ async function generateTeacherActions(
         { role: 'user', content: `Generate teacher actions for: ${plan.title}` },
       ],
       temperature: repairHint ? 0.1 : 0.25,
-      maxTokens: 131072,
+      requestPreset: 'teacherActions',
     }),
     repairHint ? 6000 : 8000,
   );

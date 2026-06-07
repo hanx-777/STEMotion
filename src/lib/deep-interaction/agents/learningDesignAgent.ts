@@ -105,8 +105,7 @@ export async function generateLearningBlueprint(ctx: LearningDesignContext): Pro
           { role: 'user', content: buildUserPrompt(ctx) },
         ],
         temperature: 0.12,
-        maxTokens: 12000,
-        stream: false,
+        requestPreset: 'blueprint',
       }),
       120000,
     );
