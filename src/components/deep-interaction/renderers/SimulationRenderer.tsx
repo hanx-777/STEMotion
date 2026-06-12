@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { InteractionArtifact, SimulationSchema } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact, SimulationSchema } from '@/features/deep-interaction/lib/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 
 const PX_PER_METER = 54;

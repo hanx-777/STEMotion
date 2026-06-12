@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { reviewFinalPresentation } from '../src/lib/rag/presentation_review';
-import type { Citation } from '../src/lib/rag/types';
+import { reviewFinalPresentation } from '../src/features/rag/lib/presentation_review';
+import type { Citation } from '../src/features/rag/lib/types';
 
 const localCitation: Citation = {
   source_type: 'local',

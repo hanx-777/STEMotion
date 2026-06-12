@@ -1,6 +1,6 @@
 'use client';
 
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import SimulationRenderer from './renderers/SimulationRenderer';
 import MindMapRenderer from './renderers/MindMapRenderer';

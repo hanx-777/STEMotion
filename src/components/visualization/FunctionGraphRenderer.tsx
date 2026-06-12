@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import gsap from 'gsap';
-import type { FunctionGraphSpec } from '@/lib/rag/visualization/types';
-import { compileSafeFunctionExpression } from '@/lib/rag/visualization/safe_expression';
+import type { FunctionGraphSpec } from '@/features/rag/lib/visualization/types';
+import { compileSafeFunctionExpression } from '@/features/rag/lib/visualization/safe_expression';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
 import { createLogger } from '@/lib/logger';
 

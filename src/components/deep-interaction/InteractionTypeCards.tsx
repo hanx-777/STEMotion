@@ -2,8 +2,8 @@
 
 import type React from 'react';
 import { Box, FlaskConical, Gamepad2, LineChart, Network } from 'lucide-react';
-import { interactionTypeMeta, interactionTypeOrder } from '@/lib/deep-interaction/rendererRegistry';
-import type { DeepInteractionType } from '@/lib/deep-interaction/types';
+import { interactionTypeMeta, interactionTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
+import type { DeepInteractionType } from '@/features/deep-interaction/lib/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 
@@ -15,19 +15,26 @@ const icons: Record<DeepInteractionType, React.ElementType> = {
   rag_visualization: LineChart,
 };
 
-export default function InteractionTypeCards({ compact = false }: { compact?: boolean }) {
+export default function InteractionTypeCards({
+  compact = false,
+  types = interactionTypeOrder,
+}: {
+  compact?: boolean;
+  types?: DeepInteractionType[];
+}) {
   const selected = useDeepInteractionUIStore((state) => state.selectedTypeFilter);
   const setTypeFilter = useDeepInteractionUIStore((state) => state.setTypeFilter);
   const cardsRef = useGsapReveal<HTMLDivElement>({ stagger: 0.12, y: 24 });
+  const effectiveSelected = types.includes(selected as DeepInteractionType) ? selected : types[0];
 
   return (
     <div>
       <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">交互方式</div>
       <div ref={cardsRef} className={compact ? 'space-y-2' : 'grid gap-3 md:grid-cols-2 xl:grid-cols-4'}>
-        {interactionTypeOrder.map((type) => {
+        {types.map((type) => {
           const meta = interactionTypeMeta[type];
           const Icon = icons[type];
-          const active = selected === type;
+          const active = effectiveSelected === type;
           return (
             <button
               key={type}

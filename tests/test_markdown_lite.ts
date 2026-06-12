@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseMarkdownLite, stripDuplicateLeadingHeading } from '../src/lib/rag/markdown_lite';
+import { parseMarkdownLite, stripDuplicateLeadingHeading } from '../src/features/rag/lib/markdown_lite';
 
 test('markdown lite parses headings, lists, strong text, code, and citations', () => {
   const blocks = parseMarkdownLite('### 4. 单位检查\n* **速度**：`v0` 单位为 m/s [L1]\n* 角度使用度。');

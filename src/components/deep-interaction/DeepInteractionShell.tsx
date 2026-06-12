@@ -4,16 +4,20 @@ import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import { stemotionMotion } from '@/lib/animation/motionTokens';
-import type { DeepInteractionStreamEvent } from '@/lib/deep-interaction/events';
-import type { DeepInteractionType, GuidedGenerationPlan, InteractionArtifact } from '@/lib/deep-interaction/types';
-import { handleMockFollowUp, type LLMFollowUpResult } from '@/lib/deep-interaction/followUpHandler';
-import { interactionTypeMeta } from '@/lib/deep-interaction/rendererRegistry';
+import type { DeepInteractionStreamEvent } from '@/features/deep-interaction/lib/events';
+import type { DeepInteractionType, GuidedGenerationPlan, InteractionArtifact } from '@/features/deep-interaction/lib/types';
+import { handleMockFollowUp, type LLMFollowUpResult } from '@/features/deep-interaction/lib/followUpHandler';
+import { interactionTypeMeta, labGenerationTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
 import { useArtifactStore } from '@/lib/stores/artifactStore';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 import { useGenerationProgressStore } from '@/lib/stores/generationProgressStore';
 import { useInteractionSessionStore } from '@/lib/stores/interactionSessionStore';
 import { useResearchLogStore } from '@/lib/stores/researchLogStore';
 import { useToast } from '@/lib/stores/toastStore';
+import {
+  createGenerationJob,
+  subscribeGenerationJob,
+} from '@/features/generation-jobs/client/generationJobClient';
 import {
   hasPersistedSessionArtifact,
   persistWithSingleRetry,
@@ -58,7 +62,10 @@ export default function DeepInteractionShell() {
     getServerHydrationSnapshot,
   );
 
-  const generationType: DeepInteractionType = selectedType === 'all' ? 'simulation' : selectedType;
+  const generationType: DeepInteractionType =
+    selectedType !== 'all' && labGenerationTypeOrder.includes(selectedType)
+      ? selectedType
+      : 'simulation';
   const visibleSessions = hasMounted ? sessions : [];
   const visibleCurrentSessionId = hasMounted ? currentSessionId : null;
   const visibleCurrentSession = hasMounted ? currentSession : null;
@@ -91,24 +98,25 @@ export default function DeepInteractionShell() {
     });
 
     try {
-      const response = await fetch('/api/v1/deep-interaction/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          preferredType: generationType,
-          existingSessionId: visibleCurrentSession?.id,
-          currentArtifactId: currentArtifact?.id,
-          guidedPlan,
-        }),
+      const job = await createGenerationJob('deep_interaction', {
+        prompt,
+        preferredType: generationType,
+        existingSessionId: visibleCurrentSession?.id,
+        currentArtifactId: currentArtifact?.id,
+        guidedPlan,
       });
+      rememberDeepInteractionJob(job.jobId);
 
-      if (!response.ok || !response.body) {
-        const errorData = await response.json().catch(() => ({ error: '生成请求失败。' }));
-        throw new Error(errorData.error ?? '生成请求失败。');
+      try {
+        await subscribeGenerationJob(job.jobId, (event) => {
+          if (event.type === 'job_failed') {
+            throw new Error(String((event as { message?: unknown }).message ?? '生成失败，请稍后重试。'));
+          }
+          handleStreamEvent(event as unknown as DeepInteractionStreamEvent);
+        });
+      } finally {
+        forgetDeepInteractionJob(job.jobId);
       }
-
-      await readEventStream(response.body);
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败，请稍后重试。';
       progressStore.fail(message);
@@ -211,32 +219,6 @@ export default function DeepInteractionShell() {
       });
     } finally {
       setIsFollowingUp(false);
-    }
-  };
-
-  const readEventStream = async (body: ReadableStream<Uint8Array>) => {
-    const reader = body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (value) {
-        buffer += decoder.decode(value, { stream: !done });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-
-        for (const part of parts) {
-          const line = part.split('\n').find((item) => item.startsWith('data: '));
-          if (!line) continue;
-          try {
-            handleStreamEvent(JSON.parse(line.slice(6)) as DeepInteractionStreamEvent);
-          } catch (e) {
-            console.warn('[SSE] Failed to parse event:', line, e);
-          }
-        }
-      }
-      if (done) break;
     }
   };
 
@@ -404,6 +386,36 @@ export default function DeepInteractionShell() {
       return;
     }
 
+    if (event.type === 'artifact_quality_updated') {
+      const existing = artifactStore.getAllArtifacts().find((artifact) => artifact.id === event.artifactId);
+      if (!existing) {
+        progress.setQualityReport(event.qualityReport);
+        progress.addLog({ stage: 'feedback', message: `质量报告已更新：${event.finalScore}/100`, progress: event.progress });
+        return;
+      }
+
+      const updatedArtifact: InteractionArtifact = {
+        ...existing,
+        qualityReport: event.qualityReport,
+        feedbackLoop: event.feedbackLoop,
+        finalScore: event.finalScore,
+        generationIterations: event.feedbackLoop.iterations.length,
+        changeLog: event.changeLog,
+        updatedAt: new Date().toISOString(),
+      };
+
+      artifactStore.updateArtifact(updatedArtifact);
+      sessionStore.updateArtifact(updatedArtifact.sessionId, updatedArtifact);
+      progress.setQualityReport(event.qualityReport);
+      if (progress.feedbackIterations.length === 0) {
+        for (const iteration of event.feedbackLoop.iterations) {
+          useGenerationProgressStore.getState().addFeedbackIteration(iteration);
+        }
+      }
+      progress.addLog({ stage: 'feedback', message: `质量报告已更新：${event.finalScore}/100`, progress: event.progress });
+      return;
+    }
+
     if (event.type === 'error') {
       progress.fail(event.message);
       const session = sessionStore.getCurrentSession();
@@ -486,7 +498,7 @@ export default function DeepInteractionShell() {
         </div>
         <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-4">
           <div data-deep-shell-motion>
-            <InteractionTypeCards compact />
+            <InteractionTypeCards compact types={labGenerationTypeOrder} />
           </div>
           <div data-deep-shell-motion>
             <SessionList sessions={visibleSessions} currentSessionId={visibleCurrentSessionId} />
@@ -567,4 +579,22 @@ export default function DeepInteractionShell() {
       </div>
     </div>
   );
+}
+
+function rememberDeepInteractionJob(jobId: string): void {
+  try {
+    window.sessionStorage.setItem('stemotion-active-deep-interaction-job', jobId);
+  } catch {
+    // Best-effort resume marker.
+  }
+}
+
+function forgetDeepInteractionJob(jobId: string): void {
+  try {
+    if (window.sessionStorage.getItem('stemotion-active-deep-interaction-job') === jobId) {
+      window.sessionStorage.removeItem('stemotion-active-deep-interaction-job');
+    }
+  } catch {
+    // Best-effort resume marker.
+  }
 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import type { ForceDiagramSpec } from '@/lib/rag/visualization/types';
+import type { ForceDiagramSpec } from '@/features/rag/lib/visualization/types';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
 
 interface Props {

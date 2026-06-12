@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createRagVisualizationArtifact } from '../src/lib/rag/visualization/artifactAdapter';
-import { validateInteractionArtifact } from '../src/lib/deep-interaction/validators';
+import { createRagVisualizationArtifact } from '../src/features/rag/lib/visualization/artifactAdapter';
+import { validateInteractionArtifact } from '../src/features/deep-interaction/lib/validators';
 
 test('creates a complete rag_visualization artifact from algorithm trace spec', () => {
   const artifact = createRagVisualizationArtifact({

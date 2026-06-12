@@ -2,7 +2,7 @@
 
 import { BadgeCheck, BookOpenCheck, ClipboardList, Database } from 'lucide-react';
 import { VisualizationRenderer } from '@/components/visualization/VisualizationRenderer';
-import type { InteractionArtifact, RagVisualizationSchema } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact, RagVisualizationSchema } from '@/features/deep-interaction/lib/types';
 import HtmlWidgetRenderer from './HtmlWidgetRenderer';
 
 export default function RagVisualizationArtifactRenderer({
@@ -38,7 +38,7 @@ export default function RagVisualizationArtifactRenderer({
         </div>
       </div>
 
-      <div data-rag-visualization-body className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,74fr)_minmax(240px,26fr)]">
+      <div data-rag-visualization-body className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,74fr)_minmax(220px,26fr)]">
         <div data-rag-visualization-stage data-rag-stage-shell className="flex min-h-[420px] min-w-0 overflow-hidden p-2.5 sm:min-h-[480px] lg:min-h-0 lg:p-3">
           {schema.htmlWidget?.html ? (
             <div className="min-h-0 flex-1">

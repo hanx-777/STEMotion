@@ -9,6 +9,17 @@ export interface HtmlSafetyResult {
 
 const FORBIDDEN_PATTERNS: Array<[RegExp, string]> = [
   [/<iframe\b/i, 'Nested iframes are not allowed inside generated widgets.'],
+  [/<script\b(?=[^>]*\bsrc\s*=)/i, 'External script sources are not allowed in generated widgets.'],
+  [/<link\b(?=[^>]*\bhref\s*=)/i, 'External stylesheet/link resources are not allowed in generated widgets.'],
+  [/<img\b/i, 'Image tags are not allowed in generated widgets; draw inline SVG or Canvas instead.'],
+  [/\bsrcset\s*=/i, 'srcset resources are not allowed in generated widgets.'],
+  [/<audio\b/i, 'Audio resources are not allowed in generated widgets.'],
+  [/<video\b/i, 'Video resources are not allowed in generated widgets.'],
+  [/<source\b/i, 'Source resources are not allowed in generated widgets.'],
+  [/<object\b/i, 'Object embeds are not allowed in generated widgets.'],
+  [/<embed\b/i, 'Embed resources are not allowed in generated widgets.'],
+  [/@import\b/i, 'CSS @import is not allowed in generated widgets.'],
+  [/\burl\(\s*['"]?\s*(?:https?:|\/\/|data:|blob:)/i, 'Remote, data, and blob CSS urls are not allowed in generated widgets.'],
   [/\bfetch\s*[\(\.]/i, 'fetch() is not allowed in generated widgets.'],
   [/\bXMLHttpRequest\b/i, 'XMLHttpRequest is not allowed in generated widgets.'],
   [/\bWebSocket\b/i, 'WebSocket is not allowed in generated widgets.'],
@@ -286,6 +297,32 @@ export function patchTruncatedHtml(html: string): string {
     }
   } catch(e) { console.warn('widget-config parse error', e); }`);
 
+    skeletonParts.push(`
+  var __ragVisibleMutationTick = 0;
+  function __ragReflectVisibleState(action) {
+    __ragVisibleMutationTick += 1;
+    widgetState.__lastAction = action || widgetState.__lastAction || 'init';
+    widgetState.__visibleMutationTick = __ragVisibleMutationTick;
+    var stage = document.getElementById('visualization');
+    if (stage) {
+      stage.setAttribute('data-running', widgetState.running ? 'true' : 'false');
+      stage.setAttribute('data-last-action', String(widgetState.__lastAction));
+      stage.setAttribute('data-state-signature', JSON.stringify(widgetState).slice(0, 240));
+    }
+    var metrics = document.getElementById('metrics');
+    if (metrics) {
+      var status = document.getElementById('rag-patched-visible-state');
+      if (!status) {
+        status = document.createElement('span');
+        status.id = 'rag-patched-visible-state';
+        status.setAttribute('data-display', '__visibleMutationTick');
+        metrics.appendChild(status);
+      }
+      status.textContent = '状态 ' + widgetState.__lastAction + ' #' + __ragVisibleMutationTick;
+    }
+  }
+  __ragReflectVisibleState('init');`);
+
     // Range input listeners
     if (hasRangeInput && !hasInputListener) {
       skeletonParts.push(`
@@ -297,6 +334,7 @@ export function patchTruncatedHtml(html: string): string {
       if (varName) widgetState[varName] = val;
       var label = slider.parentElement.querySelector('.value-label, .slider-value, [data-value]');
       if (label) label.textContent = val;
+      __ragReflectVisibleState('range:' + (varName || 'slider'));
       if (typeof window.update === 'function') window.update();
       if (typeof window.draw === 'function') window.draw();
       if (typeof window.render === 'function') window.render();
@@ -314,13 +352,16 @@ export function patchTruncatedHtml(html: string): string {
   if (startBtn) {
     startBtn.addEventListener('click', function() {
       isRunning = !isRunning;
+      widgetState.running = isRunning;
       startBtn.textContent = isRunning ? '暂停' : '开始';
+      __ragReflectVisibleState('start');
       if (typeof window.update === 'function') window.update();
     });
   }
   if (resetBtn) {
     resetBtn.addEventListener('click', function() {
       isRunning = false;
+      widgetState.running = false;
       if (startBtn) startBtn.textContent = '开始';
       try {
         var cfg2 = JSON.parse(document.getElementById('widget-config').textContent);
@@ -335,6 +376,7 @@ export function patchTruncatedHtml(html: string): string {
           if (vn && widgetState[vn] !== undefined) s.value = widgetState[vn];
         });
       } catch(e) {}
+      __ragReflectVisibleState('reset');
       if (typeof window.update === 'function') window.update();
       if (typeof window.draw === 'function') window.draw();
       if (typeof window.render === 'function') window.render();

@@ -2,7 +2,7 @@ import type {
   InteractionArtifact,
   InteractionSession,
   InteractionSubject,
-} from '@/lib/deep-interaction/types';
+} from '@/features/deep-interaction/lib/types';
 
 export const INTERACTION_SESSIONS_STORAGE_KEY = 'stemotion-interaction-sessions';
 export const INTERACTION_ARTIFACTS_STORAGE_KEY = 'stemotion-interaction-artifacts';

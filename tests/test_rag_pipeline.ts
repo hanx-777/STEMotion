@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { askRag } from '../src/lib/rag/rag_pipeline';
+import { askRag } from '../src/features/rag/lib/rag_pipeline';
 import type { LlmGenerateOptions } from '../src/lib/generation/llmClient';
 
 function createAnswerGenerator(state: { calls: number; prompts: string[] }, answer = '模型生成的结构化回答。') {

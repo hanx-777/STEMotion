@@ -3,9 +3,9 @@ import test from 'node:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { HashEmbeddingProvider } from '../src/lib/rag/embeddings';
-import { LocalVectorStore } from '../src/lib/rag/vector_store';
-import type { RagChunk } from '../src/lib/rag/types';
+import { HashEmbeddingProvider } from '../src/features/rag/lib/embeddings';
+import { LocalVectorStore } from '../src/features/rag/lib/vector_store';
+import type { RagChunk } from '../src/features/rag/lib/types';
 
 function chunk(id: string, content: string): RagChunk {
   return {

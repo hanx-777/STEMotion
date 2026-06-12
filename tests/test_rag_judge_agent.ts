@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { judgeRagQuality } from '../src/lib/rag/agents/judge_agent';
-import type { RagQualityReport } from '../src/lib/rag/types';
+import { judgeRagQuality } from '../src/features/rag/lib/agents/judge_agent';
+import type { RagQualityReport } from '../src/features/rag/lib/types';
 
 function report(overrides: Partial<RagQualityReport>): RagQualityReport {
   return {

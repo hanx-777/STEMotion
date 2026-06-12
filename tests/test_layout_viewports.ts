@@ -5,12 +5,12 @@ import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { chromium, type Browser, type Page } from 'playwright';
-import type { InteractionArtifact, InteractionSession } from '../src/lib/deep-interaction/types';
-import { createRagVisualizationArtifact } from '../src/lib/rag/visualization/artifactAdapter';
-import type { VisualizationSpec } from '../src/lib/rag/visualization/types';
+import type { InteractionArtifact, InteractionSession } from '../src/features/deep-interaction/lib/types';
+import { createRagVisualizationArtifact } from '../src/features/rag/lib/visualization/artifactAdapter';
+import type { VisualizationSpec } from '../src/features/rag/lib/visualization/types';
 
 const REPO_ROOT = process.cwd();
-const HOST = '127.0.0.1';
+const HOST = 'localhost';
 const VIEWPORTS = [
   { name: '1366x768', width: 1366, height: 768 },
   { name: '1440x900', width: 1440, height: 900 },
@@ -19,7 +19,7 @@ const VIEWPORTS = [
 ];
 
 test('Round 005 layout stays usable across Edge viewports', { timeout: 180_000 }, async () => {
-  const server = await startNextDevServer();
+  const server = await startLayoutTestServer();
   let browser: Browser | null = null;
 
   try {
@@ -31,7 +31,9 @@ test('Round 005 layout stays usable across Edge viewports', { timeout: 180_000 }
     }
   } finally {
     await browser?.close();
-    await stopNextDevServer(server.child);
+    if (server.child) {
+      await stopNextDevServer(server.child);
+    }
   }
 });
 
@@ -87,7 +89,7 @@ async function checkRagVisualizationViewport(
     await page.goto(`${baseUrl}/learn`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-rag-console]').waitFor({ state: 'visible', timeout: 30_000 });
     await page.getByRole('button', { name: /展开本地学习会话/ }).click();
-    await page.locator('button').filter({ hasText: '斜抛运动视口测试' }).first().click();
+    await clickVisibleButtonWithText(page, '斜抛运动视口测试', `${viewport.name} RAG saved session`);
     await page.locator('[data-rag-visualization-panel]').waitFor({ state: 'visible', timeout: 30_000 });
     await page.locator('[data-rag-workspace-scroll]').evaluate((node) => {
       node.scrollTop = 0;
@@ -426,8 +428,44 @@ function assertNoErrors(errors: string[], label: string) {
   assert.deepEqual(errors, [], `${label} emitted browser errors`);
 }
 
+async function clickVisibleButtonWithText(page: Page, text: string, label: string) {
+  await page.waitForFunction(
+    (buttonText) => Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.includes(buttonText)),
+    text,
+    { timeout: 30_000 },
+  );
+  const candidates = page.locator('button').filter({ hasText: text });
+  const count = await candidates.count();
+
+  for (let index = 0; index < count; index += 1) {
+    const candidate = candidates.nth(index);
+    await candidate.evaluate((node) => {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }).catch(() => undefined);
+    const box = await candidate.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) continue;
+    await candidate.click();
+    return;
+  }
+
+  assert.fail(`${label} should expose a visible saved-session button`);
+}
+
 function isIgnoredResponse(url: string): boolean {
   return url.endsWith('/favicon.ico');
+}
+
+async function startLayoutTestServer(): Promise<{ child: ChildProcess | null; baseUrl: string }> {
+  const existingBaseUrl = process.env.STEMOTION_LAYOUT_BASE_URL?.trim().replace(/\/+$/, '');
+  if (existingBaseUrl) {
+    await waitForHttp(`${existingBaseUrl}/lab`, () => undefined);
+    return { child: null, baseUrl: existingBaseUrl };
+  }
+  const defaultDevBaseUrl = 'http://localhost:3001';
+  if (await isHttpAvailable(`${defaultDevBaseUrl}/lab`)) {
+    return { child: null, baseUrl: defaultDevBaseUrl };
+  }
+  return startNextDevServer();
 }
 
 async function startNextDevServer(): Promise<{ child: ChildProcess; baseUrl: string }> {
@@ -493,4 +531,17 @@ async function waitForHttp(url: string, checkProcess: () => void) {
     await delay(500);
   }
   throw new Error(`Timed out waiting for ${url}`);
+}
+
+async function isHttpAvailable(url: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    return response.status < 500;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }

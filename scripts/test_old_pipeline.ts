@@ -1,5 +1,5 @@
-import { planRagQuery } from '../src/lib/rag/query_planner';
-import { retrieveHybridChunks } from '../src/lib/rag/retriever';
+import { planRagQuery } from '../src/features/rag/lib/query_planner';
+import { retrieveHybridChunks } from '../src/features/rag/lib/retriever';
 import { SubjectManager } from '../src/lib/subjects/subject_manager';
 
 async function test() {

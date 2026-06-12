@@ -1,8 +1,8 @@
 'use client';
 
 import { Clock3 } from 'lucide-react';
-import type { InteractionSession } from '@/lib/deep-interaction/types';
-import { interactionTypeMeta } from '@/lib/deep-interaction/rendererRegistry';
+import type { InteractionSession } from '@/features/deep-interaction/lib/types';
+import { interactionTypeMeta } from '@/features/deep-interaction/lib/rendererRegistry';
 import { useInteractionSessionStore } from '@/lib/stores/interactionSessionStore';
 
 export default function SessionList({

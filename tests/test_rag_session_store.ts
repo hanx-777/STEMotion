@@ -12,7 +12,7 @@ import {
   type RagSessionRecord,
   type RagSessionSnapshot,
 } from '../src/features/rag/state/ragSessionStore';
-import type { RagAskResult } from '../src/lib/rag/types';
+import type { RagAskResult } from '../src/features/rag/lib/types';
 
 const result: RagAskResult = {
   subject: 'physics_mechanics',

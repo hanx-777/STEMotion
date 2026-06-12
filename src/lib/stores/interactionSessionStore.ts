@@ -5,7 +5,7 @@ import type {
   InteractionSession,
   InteractionSessionStatus,
   SessionMessage,
-} from '@/lib/deep-interaction/types';
+} from '@/features/deep-interaction/lib/types';
 import { makeId } from '@/lib/utils/makeId';
 import { normalizeSessions } from './interactionPersistence';
 

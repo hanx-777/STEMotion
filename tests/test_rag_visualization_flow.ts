@@ -7,8 +7,8 @@ import {
   restoreRagVisualizationGenerationState,
   shouldStartRagVisualization,
 } from '../src/features/rag/state/ragVisualizationFlow';
-import type { InteractionArtifact } from '../src/lib/deep-interaction/types';
-import type { RagAskResult } from '../src/lib/rag/types';
+import type { InteractionArtifact } from '../src/features/deep-interaction/lib/types';
+import type { RagAskResult } from '../src/features/rag/lib/types';
 
 const baseResult: RagAskResult = {
   subject: 'physics_mechanics',

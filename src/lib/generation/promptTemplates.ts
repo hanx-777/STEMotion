@@ -1,5 +1,6 @@
 import type { ExperimentPlan } from './agentPipeline';
 import { artifactDesignContractPrompt } from './artifactDesignContract';
+import { buildInternalMultiAgentPlanningPrompt } from './multiAgentGenerationPrompt';
 
 export const ALLOWED_WIDGET_MESSAGES = [
   'SET_WIDGET_STATE',
@@ -78,6 +79,12 @@ HTML contract:
 - Include variable controls, SVG or Canvas visualization, #start-btn, #reset-btn, and #metrics.
 - Use requestAnimationFrame for obvious visible motion.
 - Use a clear start/pause/reset state machine.
+
+${buildInternalMultiAgentPlanningPrompt({
+  mode: 'artifact',
+  artifactKind: 'self-contained HTML/SVG/Canvas STEM widget',
+  outputInstruction: 'Return ONLY the complete HTML document.',
+})}
 
 ${artifactDesignContractPrompt({
   medium: 'self-contained HTML/SVG/Canvas STEM widget',

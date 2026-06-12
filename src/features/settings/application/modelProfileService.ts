@@ -9,6 +9,7 @@ import {
   type ModelProvider,
 } from '@/lib/generation/modelProfiles';
 import { createLogger } from '@/lib/logger';
+import { AppError } from '@/platform/errors';
 
 const log = createLogger('profiles:v1');
 
@@ -39,7 +40,7 @@ export async function saveModelProfileV1(body: unknown) {
 
 export async function activateModelProfileV1(activeProfile: unknown) {
   if (!activeProfile || typeof activeProfile !== 'string') {
-    throw new Error('activeProfile is required');
+    throw new AppError('activeProfile is required', { status: 400, code: 'VALIDATION_ERROR' });
   }
   const data = await setActiveModelProfile(activeProfile);
   clearProfilesCache();
@@ -48,7 +49,7 @@ export async function activateModelProfileV1(activeProfile: unknown) {
 }
 
 export async function deleteModelProfileV1(id: string) {
-  if (!id) throw new Error('id is required');
+  if (!id) throw new AppError('id is required', { status: 400, code: 'VALIDATION_ERROR' });
   const data = await deleteModelProfile(id);
   clearProfilesCache();
   log.info(`Profile deleted: ${id}`);
@@ -59,7 +60,7 @@ export async function fetchRemoteModelsV1(body: unknown) {
   const input = body as { provider?: unknown; baseURL?: unknown; apiKey?: unknown };
   const provider = input.provider as ModelProvider;
   if (provider !== 'openai' && provider !== 'anthropic') {
-    throw new Error('provider must be openai or anthropic');
+    throw new AppError('provider must be openai or anthropic', { status: 400, code: 'VALIDATION_ERROR' });
   }
   return {
     models: await fetchRemoteModels({

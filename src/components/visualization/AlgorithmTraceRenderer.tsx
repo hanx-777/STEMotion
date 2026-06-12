@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import type { AlgorithmTraceSpec } from '@/lib/rag/visualization/types';
-import { normalizeAlgorithmTraceSpec } from '@/lib/rag/visualization/algorithmTraceSpec';
+import type { AlgorithmTraceSpec } from '@/features/rag/lib/visualization/types';
+import { normalizeAlgorithmTraceSpec } from '@/features/rag/lib/visualization/algorithmTraceSpec';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
 
 interface Props {

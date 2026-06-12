@@ -1,12 +1,13 @@
 import {
   runAgentWidgetPipeline,
   type DeepInteractionGenerateInput,
-} from '@/lib/deep-interaction/agentWidgetPipeline';
-import { runGuidedPlanningAgent, type GuidedPlanningInput } from '@/lib/deep-interaction/agents/guidedPlanningAgent';
-import type { DeepInteractionStreamEvent } from '@/lib/deep-interaction/events';
-import { handleLLMFollowUp } from '@/lib/deep-interaction/followUpHandler.server';
-import type { DeepInteractionType, LearningBlueprint, TemplateMetadata } from '@/lib/deep-interaction/types';
+} from '@/features/deep-interaction/lib/agentWidgetPipeline';
+import { runGuidedPlanningAgent, type GuidedPlanningInput } from '@/features/deep-interaction/lib/agents/guidedPlanningAgent';
+import type { DeepInteractionStreamEvent } from '@/features/deep-interaction/lib/events';
+import { handleLLMFollowUp } from '@/features/deep-interaction/lib/followUpHandler.server';
+import type { DeepInteractionType, LearningBlueprint, TemplateMetadata } from '@/features/deep-interaction/lib/types';
 import { createLogger } from '@/lib/logger';
+import { AppError } from '@/platform/errors';
 
 const log = createLogger('deep-interaction:v1');
 
@@ -54,7 +55,10 @@ export function createDeepInteractionGenerateResponse(input: Partial<DeepInterac
             guidedPlan: input.guidedPlan,
           },
           emit,
-          { isAborted: () => aborted },
+          {
+            isAborted: () => aborted || signal.aborted,
+            signal,
+          },
         );
         log.info('Request completed', { elapsed: `${((Date.now() - startTime) / 1000).toFixed(1)}s` });
       } catch (error) {
@@ -88,10 +92,10 @@ export function createDeepInteractionGenerateResponse(input: Partial<DeepInterac
 
 export async function runDeepInteractionPlanning(input: Partial<GuidedPlanningInput>) {
   if (!input.prompt || typeof input.prompt !== 'string' || !input.prompt.trim()) {
-    throw new Error('请输入需要规划的学习主题。');
+    throw new AppError('请输入需要规划的学习主题。', { status: 400, code: 'VALIDATION_ERROR' });
   }
   if (!input.planningSessionId || typeof input.planningSessionId !== 'string') {
-    throw new Error('缺少 planningSessionId。');
+    throw new AppError('缺少 planningSessionId。', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
   return runGuidedPlanningAgent({
@@ -112,10 +116,10 @@ export async function runDeepInteractionFollowUp(input: {
   templateMetadata?: TemplateMetadata;
 }) {
   if (!input.prompt || typeof input.prompt !== 'string' || !input.prompt.trim()) {
-    throw new Error('请输入修改要求。');
+    throw new AppError('请输入修改要求。', { status: 400, code: 'VALIDATION_ERROR' });
   }
   if (!input.currentHtml || typeof input.currentHtml !== 'string') {
-    throw new Error('缺少当前 HTML 内容。');
+    throw new AppError('缺少当前 HTML 内容。', { status: 400, code: 'VALIDATION_ERROR' });
   }
 
   return handleLLMFollowUp(input.currentHtml, input.prompt, {

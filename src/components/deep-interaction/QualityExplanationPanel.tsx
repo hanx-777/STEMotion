@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import type { InteractionArtifact, LearningBlueprint, QualityReport } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact, LearningBlueprint, QualityReport } from '@/features/deep-interaction/lib/types';
 
 interface QualityExplanationPanelProps {
   qualityReport?: QualityReport | null;

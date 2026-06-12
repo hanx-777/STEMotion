@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import type { InteractionOutline } from '@/lib/deep-interaction/events';
+import type { InteractionOutline } from '@/features/deep-interaction/lib/events';
 import type {
   FeedbackIteration,
   InteractionSessionStatus,
   LearningBlueprint,
   QualityReport,
   SchemaValidationSummary,
-} from '@/lib/deep-interaction/types';
+} from '@/features/deep-interaction/lib/types';
 
 export interface GenerationLogItem {
   id: string;

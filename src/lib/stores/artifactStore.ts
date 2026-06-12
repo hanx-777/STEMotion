@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import { trimArtifactsByCapacity } from './interactionPersistence';
 
 interface ArtifactState {

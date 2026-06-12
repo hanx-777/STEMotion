@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { LlmGenerateOptions } from '../src/lib/generation/llmClient';
-import { runRagMultiAgentOrchestrator } from '../src/lib/rag/agents/rag_multi_agent_orchestrator';
-import { reviseRagAnswer } from '../src/lib/rag/agents/revision_agent';
-import { reviewCitationGrounding } from '../src/lib/rag/agents/reviewers/citation_grounding_reviewer';
-import { reviewPhysicsReasoning } from '../src/lib/rag/agents/reviewers/physics_reasoning_reviewer';
-import type { RagMultiAgentContext } from '../src/lib/rag/agents/types';
-import type { AnswerSection, Citation, RagEvidencePack, RagQualityReport, RagRetrievalReport, RetrievedChunk } from '../src/lib/rag/types';
+import { runRagMultiAgentOrchestrator } from '../src/features/rag/lib/agents/rag_multi_agent_orchestrator';
+import { reviseRagAnswer } from '../src/features/rag/lib/agents/revision_agent';
+import { reviewCitationGrounding } from '../src/features/rag/lib/agents/reviewers/citation_grounding_reviewer';
+import { reviewPhysicsReasoning } from '../src/features/rag/lib/agents/reviewers/physics_reasoning_reviewer';
+import type { RagMultiAgentContext } from '../src/features/rag/lib/agents/types';
+import type { AnswerSection, Citation, RagEvidencePack, RagQualityReport, RagRetrievalReport, RetrievedChunk } from '../src/features/rag/lib/types';
 
 const citation: Citation = {
   source_type: 'local',

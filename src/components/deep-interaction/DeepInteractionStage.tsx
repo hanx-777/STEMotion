@@ -3,11 +3,12 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { Sparkles } from 'lucide-react';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import ArtifactRenderer from './ArtifactRenderer';
 import InteractionTypeCards from './InteractionTypeCards';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { labGenerationTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
 
 export default function DeepInteractionStage({
   artifact,
@@ -62,7 +63,7 @@ export default function DeepInteractionStage({
             </p>
           </div>
           <div data-stage-motion>
-            <InteractionTypeCards />
+            <InteractionTypeCards types={labGenerationTypeOrder} />
           </div>
           {isGenerating && (
             <div data-stage-motion>

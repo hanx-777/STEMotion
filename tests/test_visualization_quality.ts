@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateInteractionArtifact } from '../src/lib/deep-interaction/validators';
-import { createRagVisualizationArtifact } from '../src/lib/rag/visualization/artifactAdapter';
-import { checkVisualizationSpec } from '../src/lib/rag/visualization/quality_checker';
-import type { VisualizationSpec } from '../src/lib/rag/visualization/types';
+import { validateInteractionArtifact } from '../src/features/deep-interaction/lib/validators';
+import { createRagVisualizationArtifact } from '../src/features/rag/lib/visualization/artifactAdapter';
+import { checkVisualizationSpec } from '../src/features/rag/lib/visualization/quality_checker';
+import type { VisualizationSpec } from '../src/features/rag/lib/visualization/types';
 
 test('valid function_graph passes', () => {
   const spec: VisualizationSpec = {

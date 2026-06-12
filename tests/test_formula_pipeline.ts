@@ -3,8 +3,8 @@ import test from 'node:test';
 import {
   normalizePlainTextMath,
   renderLatexToString,
-} from '../src/lib/rag/math_render';
-import { parseMarkdownLite } from '../src/lib/rag/markdown_lite';
+} from '../src/features/rag/lib/math_render';
+import { parseMarkdownLite } from '../src/features/rag/lib/markdown_lite';
 
 test('normalizePlainTextMath converts e^(-x^2) to e^{-x^2}', () => {
   const input = 'f(x) = x e^(-x^2)';

@@ -1,7 +1,7 @@
 'use client';
 
 import { TrendingUp, Circle, Zap, ArrowLeftRight, Activity } from 'lucide-react';
-import { PHYSICS_CASES } from '@/lib/deep-interaction/physicsMechanicsCases';
+import { PHYSICS_CASES } from '@/features/deep-interaction/lib/physicsMechanicsCases';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 
 const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {

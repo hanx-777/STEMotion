@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import type { VisualizationSpec } from '@/lib/rag/visualization/types';
+import type { VisualizationSpec } from '@/features/rag/lib/visualization/types';
 
 type ProjectileSpec = Extract<VisualizationSpec, { type: 'projectile_motion' }>;
 

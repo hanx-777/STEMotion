@@ -4,7 +4,7 @@ import { Check, Loader2, RotateCcw } from 'lucide-react';
 import type {
   GuidedClarificationQuestion,
   GuidedGenerationPlan,
-} from '@/lib/deep-interaction/types';
+} from '@/features/deep-interaction/lib/types';
 
 interface GuidedPlanningPanelProps {
   loading: boolean;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { toLegacyRagInput, toLegacyRagResult, toRagV1Response } from '../src/features/rag/contracts';
-import type { RagAskResult } from '../src/lib/rag/types';
+import type { RagAskResult } from '../src/features/rag/lib/types';
 
 test('RAG v1 request maps to the legacy pipeline input without losing compatibility fields', () => {
   const legacy = toLegacyRagInput({

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { reviewRagAnswer } from '../src/lib/rag/quality_review';
-import type { AnswerSection, Citation } from '../src/lib/rag/types';
+import { reviewRagAnswer } from '../src/features/rag/lib/quality_review';
+import type { AnswerSection, Citation } from '../src/features/rag/lib/types';
 
 const stepSections: AnswerSection[] = [
   { id: 'extract', title: '题目信息提取', content: '已知 v0 = 20 m/s，θ = 30°。' },

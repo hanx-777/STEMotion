@@ -1,7 +1,7 @@
 'use client';
 
 import { ShieldCheck } from 'lucide-react';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 
 export default function TemplateMatchPanel({
   templateMetadata,

@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { BookmarkPlus, Check } from 'lucide-react';
 import { useArtifactStore } from '@/lib/stores/artifactStore';
 import { useInteractionSessionStore } from '@/lib/stores/interactionSessionStore';
-import { createRagVisualizationArtifact } from '@/lib/rag/visualization/artifactAdapter';
-import type { VisualizationSpec } from '@/lib/rag/visualization/types';
-import type { RagQualityReport } from '@/lib/rag/types';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import { createRagVisualizationArtifact } from '@/features/rag/lib/visualization/artifactAdapter';
+import type { VisualizationSpec } from '@/features/rag/lib/visualization/types';
+import type { RagQualityReport } from '@/features/rag/lib/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import {
   createSessionFromArtifact,
   hasPersistedSessionArtifact,

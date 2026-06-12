@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { HybridRetriever } from '../src/lib/rag/hybrid_retriever';
+import { HybridRetriever } from '../src/features/rag/lib/hybrid_retriever';
 
 interface EvalCase {
   query: string;

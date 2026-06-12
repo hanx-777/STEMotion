@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import { useDeepWidgetIframeStore } from '@/lib/stores/deepWidgetIframeStore';
 import { INTERACTIVE_WIDGET_IFRAME_SANDBOX, patchHtmlForIframe } from '@/lib/utils/iframe';
 

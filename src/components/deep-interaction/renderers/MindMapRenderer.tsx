@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { MindMapSchema } from '@/lib/deep-interaction/types';
+import type { MindMapSchema } from '@/features/deep-interaction/lib/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 
 export default function MindMapRenderer({ schema }: { schema: MindMapSchema }) {

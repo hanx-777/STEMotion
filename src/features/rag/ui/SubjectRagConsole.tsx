@@ -25,7 +25,28 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { askRagFromBrowser } from '@/features/rag/client/ragClient';
+import {
+  askRagFromBrowserStream,
+  readActiveRagRun,
+  resumeRagRunFromBrowser,
+  readActiveRagSessionGenerationJob,
+  resumeRagSessionGenerationFromBrowser,
+  subscribeRagArtifactQualityReviewFromBrowser,
+} from '@/features/rag/client/ragClient';
+import {
+  useRagVisualizationJobSubscription,
+  type ActiveRagVisualizationJob,
+} from '@/features/rag/ui/hooks/useRagVisualizationJobSubscription';
+import {
+  isArtifactQualityUpdatedEvent,
+  isArtifactReadyEvent,
+  isGenerationJobStillRunningError,
+  isJobCancelledEvent,
+  isJobCompletedEvent,
+  isJobFailedEvent,
+  isRagSessionGenerationResult,
+  type GenerationJobEvent,
+} from '@/features/generation-jobs/client/generationJobClient';
 import { attributeAskError } from '@/features/rag/state/ragAskErrorAttribution';
 import {
   classifyRagSessionSaveIntent,
@@ -38,6 +59,7 @@ import {
   composeRagQuestionWithPlanningAnswers,
   type RagPlanningDraft,
 } from '@/features/rag/state/ragPlanningMode';
+import { buildStreamingAnswerPreview } from '@/features/rag/state/streamingAnswerPreview';
 import {
   completeRagVisualizationFailure,
   completeRagVisualizationSuccess,
@@ -49,15 +71,15 @@ import {
   type RagVisualizationGenerationUiState,
   type RagVisualizationStatus,
 } from '@/features/rag/state/ragVisualizationFlow';
-import { DEMO_CASES, type DemoCase } from '@/lib/rag/demoCases';
-import { citationRefForCitation, citationSourceKey, resolveCitationRef } from '@/lib/rag/citation_refs';
-import { renderLatexToString } from '@/lib/rag/math_render';
-import { parseMarkdownLite, type MarkdownInlineToken, type MarkdownLiteBlock } from '@/lib/rag/markdown_lite';
+import { DEMO_CASES, type DemoCase } from '@/features/rag/lib/demoCases';
+import { citationRefForCitation, citationSourceKey, resolveCitationRef } from '@/features/rag/lib/citation_refs';
+import { renderLatexToString } from '@/features/rag/lib/math_render';
+import { parseMarkdownLite, type MarkdownInlineToken, type MarkdownLiteBlock } from '@/features/rag/lib/markdown_lite';
 import ArtifactRenderer from '@/components/deep-interaction/ArtifactRenderer';
-import type { DeepInteractionStreamEvent } from '@/lib/deep-interaction/events';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
-import type { RagQualityReport, RagTaskType } from '@/lib/rag/types';
-import { getSubjectModeConfig, type RagMode } from '@/lib/rag/modeConfigs';
+import type { DeepInteractionStreamEvent } from '@/features/deep-interaction/lib/events';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
+import type { RagQualityReport, RagTaskType } from '@/features/rag/lib/types';
+import { getSubjectModeConfig, type RagMode } from '@/features/rag/lib/modeConfigs';
 import { createRagStages } from '@/lib/progress/progressStages';
 import type { ProgressModel, ProgressStatus as ProgressStageStatus } from '@/lib/progress/progressTypes';
 import RealisticProgressPanel from '@/components/progress/RealisticProgressPanel';
@@ -71,8 +93,13 @@ import {
   RAG_TO_LAB_ROUTE,
   buildLabPromptFromRagResult,
 } from '@/features/rag-lab-bridge/buildLabPrompt';
+import { toLegacyRagResult, type RagV1AskResponse, type RagV1QualityMode } from '@/features/rag/contracts';
 
 type TaskType = RagTaskType;
+type StreamingAnswerStatus = 'idle' | 'streaming';
+
+const STREAMING_PREVIEW_THROTTLE_MS = 120;
+const currentTimestampMs = () => Date.now();
 
 interface SubjectInfo {
   name: string;
@@ -140,7 +167,7 @@ interface RagResult {
   formula_blocks?: Array<{ id: string; label?: string; latex: string; explanation?: string; citation_refs?: string[] }>;
   final_results?: Array<{ label: string; value: string; unit?: string; citation_refs?: string[] }>;
   visualization_hint?: VisualizationHint;
-  visualization_spec?: import('@/lib/rag/visualization/types').VisualizationSpec;
+  visualization_spec?: import('@/features/rag/lib/visualization/types').VisualizationSpec;
   citations: Citation[];
   source_summary: {
     local_count: number;
@@ -186,6 +213,24 @@ interface RagResult {
 
 type TaskGroupId = 'student' | 'teacher' | 'visualization';
 type ForcedRagSessionSaveMode = Exclude<RagSessionSaveMode, 'auto'>;
+type RagVisualizationEvent = DeepInteractionStreamEvent | GenerationJobEvent;
+
+interface RagVisualizationGenerationContext {
+  question: string;
+  subject: string;
+  taskType: TaskType;
+  useWebSearch: boolean;
+  source: 'student' | 'teacher';
+  qualityMode: RagV1QualityMode;
+}
+
+interface RagSessionGenerationEventOptions {
+  context: RagVisualizationGenerationContext;
+  visualizationMode: 'auto' | 'manual' | 'off';
+  getSessionId: () => string | null;
+  setSessionId: (sessionId: string) => void;
+  saveMode?: ForcedRagSessionSaveMode;
+}
 
 interface PendingSessionSaveConfirmation {
   sessionId: string;
@@ -196,8 +241,14 @@ interface PendingSessionSaveConfirmation {
 }
 
 
-export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode }) {
+export default function SubjectRagConsole({ mode = 'student', initialRunId }: { mode?: RagMode; initialRunId?: string }) {
   const toast = useToast();
+  const {
+    start: runRagVisualizationJob,
+    resume: resumeRagVisualizationJob,
+    readActiveVisualizationJob,
+    clearActiveVisualizationJob,
+  } = useRagVisualizationJobSubscription();
   const router = useRouter();
   const [subjects, setSubjects] = useState<SubjectInfo[]>([]);
   const [subject, setSubject] = useState('physics_mechanics');
@@ -212,6 +263,9 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   const [progressModel, setProgressModel] = useState<ProgressModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RagResult | null>(null);
+  const resultRef = useRef<RagResult | null>(null);
+  const [streamingAnswerPreview, setStreamingAnswerPreview] = useState('');
+  const [streamingAnswerStatus, setStreamingAnswerStatus] = useState<StreamingAnswerStatus>('idle');
   const [labBridgeMessage, setLabBridgeMessage] = useState<string | null>(null);
   const [visualizationGeneration, setVisualizationGeneration] = useState<RagVisualizationGenerationUiState>(idleVisualizationState);
   const [generatedVisualizationArtifact, setGeneratedVisualizationArtifact] = useState<InteractionArtifact | null>(null);
@@ -247,8 +301,16 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   });
   const answerMotionRef = useRef<HTMLDivElement>(null);
   const progressStartTimeRef = useRef<number>(0);
+  const streamingAnswerRawRef = useRef('');
+  const streamingPreviewTimerRef = useRef<number | null>(null);
+  const streamingStartedRef = useRef(false);
   const highlightTimerRef = useRef<number | null>(null);
   const visualizationRequestRef = useRef(0);
+  const resumedRagRunRef = useRef<string | null>(null);
+  const resumedRagSessionJobRef = useRef<string | null>(null);
+  const resumedVisualizationJobRef = useRef<string | null>(null);
+  const pendingRagSessionGenerationEventsRef = useRef<GenerationJobEvent[]>([]);
+  const subscribedQualityReviewJobIdsRef = useRef<Set<string>>(new Set());
   const userEditedRef = useRef(false);
   const sessions = useRagSessionStore((state) => state.sessions);
   const currentSessionId = useRagSessionStore((state) => state.currentSessionId);
@@ -257,6 +319,20 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   const deleteStoredSession = useRagSessionStore((state) => state.deleteSession);
   const clearStoredSessions = useRagSessionStore((state) => state.clearSessions);
   const renameStoredSession = useRagSessionStore((state) => state.renameSession);
+
+  const commitResult = (next: RagResult | null) => {
+    resultRef.current = next;
+    setResult(next);
+  };
+
+  const updatePublicRunUrl = (runId: string) => {
+    const currentHistoryState = window.history.state ?? {};
+    window.history.pushState(
+      { ...currentHistoryState, ragRunId: runId },
+      '',
+      `/learn/r/${encodeURIComponent(runId)}`,
+    );
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -339,6 +415,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     || visualizationGeneration.status === 'error'
     || hasManualVisualizationHint;
   const canBridgeToLab = Boolean(result?.answer?.trim() && !asking);
+  const hasStreamingAnswerPreview = streamingAnswerStatus === 'streaming' && Boolean(streamingAnswerPreview.trim());
   const labBridgePrompt = useMemo(() => {
     if (!result?.answer?.trim()) return '';
     return buildLabPromptFromRagResult({
@@ -364,9 +441,9 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                 ...s,
                 status,
                 detail,
-                ...(status === 'running' ? { startedAt: Date.now() } : {}),
+                ...(status === 'running' ? { startedAt: currentTimestampMs() } : {}),
                 ...(status === 'completed' || status === 'skipped' || status === 'error' || status === 'warning'
-                  ? { completedAt: Date.now() }
+                  ? { completedAt: currentTimestampMs() }
                   : {}),
               }
             : s,
@@ -376,75 +453,286 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     });
   };
 
+  const scheduleStreamingAnswerPreviewUpdate = (raw: string) => {
+    streamingAnswerRawRef.current = raw;
+    if (streamingPreviewTimerRef.current !== null) return;
+
+    streamingPreviewTimerRef.current = window.setTimeout(() => {
+      streamingPreviewTimerRef.current = null;
+      const preview = buildStreamingAnswerPreview(streamingAnswerRawRef.current);
+      if (!preview) return;
+      setStreamingAnswerPreview(preview);
+      setStreamingAnswerStatus('streaming');
+    }, STREAMING_PREVIEW_THROTTLE_MS);
+  };
+
+  const clearStreamingAnswerPreview = () => {
+    if (streamingPreviewTimerRef.current !== null) {
+      window.clearTimeout(streamingPreviewTimerRef.current);
+      streamingPreviewTimerRef.current = null;
+    }
+    streamingAnswerRawRef.current = '';
+    streamingStartedRef.current = false;
+    setStreamingAnswerPreview('');
+    setStreamingAnswerStatus('idle');
+  };
+
+  const acceptRagVisualizationArtifact = (
+    artifact: InteractionArtifact,
+    ragResult: RagResult,
+    sessionId: string,
+    context: RagVisualizationGenerationContext,
+  ) => {
+    if (resultRef.current?.visualization_status === 'ready'
+      && resultRef.current.visualization_artifact?.id === artifact.id) {
+      clearActiveVisualizationJob();
+      return;
+    }
+
+    setGeneratedVisualizationArtifact(artifact);
+    setVisualizationGeneration((prev) => ({
+      status: 'ready',
+      progress: 100,
+      message: '互动可视化已生成',
+      logs: [...prev.logs, '互动可视化已生成并同步到本地学习会话。'].slice(-8),
+    }));
+    updateStage('visualization', 'completed', '互动可视化已生成');
+    setProgressModel((prev) => prev
+      ? {
+          ...prev,
+          message: '已自动保存到本地学习会话',
+          summary: {
+            ...(prev.summary ?? {}),
+            '可视化演示': '已生成并自动保存',
+          },
+        }
+      : prev);
+
+    const base = resultRef.current ?? ragResult;
+    const next = completeRagVisualizationSuccess(base, { artifact });
+    commitResult(next);
+    saveSession({
+      id: sessionId,
+      question: context.question,
+      subject: context.subject,
+      taskType: context.taskType,
+      useWebSearch: context.useWebSearch,
+      result: next,
+    });
+    clearActiveVisualizationJob();
+    toast.success('互动可视化已生成，已自动保存到本地学习会话。', 4000);
+  };
+
+  const completeRagVisualizationJobFailure = (
+    message: string,
+    diagnostics: RagVisualizationFailureDiagnostics | undefined,
+    ragResult: RagResult,
+    sessionId: string,
+    context: RagVisualizationGenerationContext,
+  ) => {
+    const diagnosticSummary = formatVisualizationDiagnostics(diagnostics);
+    const errorMessage = diagnosticSummary ? `${message}\n${diagnosticSummary}` : message;
+    const failedResult = completeRagVisualizationFailure(resultRef.current ?? ragResult, { error: errorMessage });
+    setVisualizationGeneration((prev) => ({
+      status: 'error',
+      progress: 100,
+      message,
+      logs: [...prev.logs, message, ...(diagnosticSummary ? [diagnosticSummary] : [])].slice(-8),
+      diagnostics,
+    }));
+    commitResult(failedResult);
+    saveSession({
+      id: sessionId,
+      question: context.question,
+      subject: context.subject,
+      taskType: context.taskType,
+      useWebSearch: context.useWebSearch,
+      result: failedResult,
+    });
+    clearActiveVisualizationJob();
+    updateStage('visualization', 'error', errorMessage);
+    setProgressModel((prev) => prev
+      ? {
+          ...prev,
+          message: '回答已自动保存，可视化生成失败',
+          summary: {
+            ...(prev.summary ?? {}),
+            '可视化演示': '生成失败，回答已保存',
+          },
+        }
+      : prev);
+    toast.error('互动可视化生成失败，回答已自动保存到本地学习会话。', 4500);
+  };
+
+  const mergeRagVisualizationQualityUpdate = (
+    event: GenerationJobEvent,
+    sessionId: string,
+    context: RagVisualizationGenerationContext,
+  ) => {
+    if (!isArtifactQualityUpdatedEvent(event)) return;
+    const base = resultRef.current;
+    const artifact = base?.visualization_artifact ?? generatedVisualizationArtifact;
+    if (!base || !artifact || artifact.id !== event.artifactId) return;
+
+    const feedbackLoop = isObjectRecord(event.feedbackLoop)
+      ? event.feedbackLoop as unknown as InteractionArtifact['feedbackLoop']
+      : artifact.feedbackLoop;
+    const qualityReport = isObjectRecord(event.qualityReport)
+      ? event.qualityReport as unknown as InteractionArtifact['qualityReport']
+      : artifact.qualityReport;
+    const changeLog = Array.isArray(event.changeLog)
+      ? event.changeLog.filter((item): item is string => typeof item === 'string')
+      : artifact.changeLog;
+    const finalScore = typeof event.finalScore === 'number' && Number.isFinite(event.finalScore)
+      ? event.finalScore
+      : artifact.finalScore;
+    const nextArtifact: InteractionArtifact = {
+      ...artifact,
+      ...(feedbackLoop ? { feedbackLoop } : {}),
+      ...(qualityReport ? { qualityReport } : {}),
+      ...(finalScore !== undefined ? { finalScore } : {}),
+      ...(changeLog ? { changeLog } : {}),
+      ...(feedbackLoop ? { generationIterations: feedbackLoop.iterations.length } : {}),
+      schema: {
+        ...artifact.schema,
+        ...(feedbackLoop ? { auditTrail: feedbackLoop.iterations } : {}),
+        ...(changeLog ? { repairTrace: changeLog } : {}),
+      },
+    };
+    const next: RagResult = {
+      ...base,
+      visualization_status: 'ready',
+      visualization_error: undefined,
+      visualization_artifact: nextArtifact,
+    };
+    commitResult(next);
+    saveSession({
+      id: sessionId,
+      question: context.question,
+      subject: context.subject,
+      taskType: context.taskType,
+      useWebSearch: context.useWebSearch,
+      result: next,
+    });
+    setVisualizationGeneration((prev) => ({
+      ...prev,
+      status: 'ready',
+      progress: 100,
+      message: '互动可视化质量报告已更新',
+      logs: [...prev.logs, '互动可视化质量报告已更新。'].slice(-8),
+    }));
+  };
+
+  const subscribeArtifactQualityReviewJob = (
+    reviewJobId: string,
+    sessionId: string,
+    context: RagVisualizationGenerationContext,
+  ) => {
+    if (subscribedQualityReviewJobIdsRef.current.has(reviewJobId)) return;
+    subscribedQualityReviewJobIdsRef.current.add(reviewJobId);
+    setVisualizationGeneration((prev) => ({
+      ...prev,
+      status: prev.status === 'idle' ? 'generating' : prev.status,
+      message: '互动可视化已生成，质量报告后台更新中...',
+      logs: [...prev.logs, '互动可视化已生成，质量报告后台更新中...'].slice(-8),
+    }));
+
+    void subscribeRagArtifactQualityReviewFromBrowser(reviewJobId, {
+      onJobEvent: (event) => {
+        if (event.type === 'artifact_quality_updated' && isArtifactQualityUpdatedEvent(event)) {
+          mergeRagVisualizationQualityUpdate(event, sessionId, context);
+          return;
+        }
+        if (event.type === 'artifact_quality_review_completed') {
+          setVisualizationGeneration((prev) => ({
+            ...prev,
+            status: 'ready',
+            message: '互动可视化质量报告已更新',
+            logs: [...prev.logs, '互动可视化质量报告已更新。'].slice(-8),
+          }));
+          return;
+        }
+        if (event.type === 'artifact_quality_review_failed' || event.type === 'job_failed') {
+          setVisualizationGeneration((prev) => ({
+            ...prev,
+            status: 'ready',
+            message: '互动可视化已生成，质量报告暂未完成',
+            logs: [...prev.logs, '质量报告后台更新失败，可稍后重试生成或查看任务 trace。'].slice(-8),
+          }));
+        }
+      },
+    }).catch(() => {
+      setVisualizationGeneration((prev) => ({
+        ...prev,
+        status: 'ready',
+        message: '互动可视化已生成，质量报告正在后台恢复',
+        logs: [...prev.logs, '质量报告订阅中断，刷新后可从任务快照恢复。'].slice(-8),
+      }));
+    });
+  };
+
   const startVisualizationGeneration = async (
     ragResult: RagResult,
     sessionId: string,
-    context: {
-      question: string;
-      subject: string;
-      taskType: TaskType;
-      useWebSearch: boolean;
-      source: 'student' | 'teacher';
-    },
+    context: RagVisualizationGenerationContext,
   ) => {
     const requestId = ++visualizationRequestRef.current;
+    let terminalEventHandled = false;
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration({
       status: 'generating',
       progress: 6,
-      message: '正在启动多 Agent 可视化生成...',
-      logs: ['正在启动多 Agent 可视化生成...'],
+      message: '正在启动互动可视化生成...',
+      logs: ['正在启动互动可视化生成...'],
     });
     updateStage('visualization', 'running', '正在生成互动可视化 artifact...');
 
     try {
-      const response = await fetch('/api/v1/rag/visualization/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: context.question,
-          answerText: ragResult.answer,
-          answerSections: ragResult.answer_sections,
-          formulaBlocks: ragResult.formula_blocks,
-          finalResults: ragResult.final_results,
-          citations: ragResult.citations,
-          subject: context.subject,
-          taskType: context.taskType,
-          source: context.source,
-          preferredType: 'interactive_html',
-        }),
-      });
-
-      if (!response.ok || !response.body) {
-        const data = await response.json().catch(() => ({ error: '可视化生成请求失败。' }));
-        throw new Error(data.error ?? '可视化生成请求失败。');
-      }
-
-      await readRagVisualizationEventStream(response.body, (event) => {
-        if (requestId !== visualizationRequestRef.current) return;
-        handleRagVisualizationEvent(event, ragResult, sessionId, context);
-      });
-    } catch (err) {
-      if (requestId !== visualizationRequestRef.current) return;
-      const message = err instanceof Error ? err.message : '可视化生成失败';
-      const failedResult = completeRagVisualizationFailure(ragResult, { error: message });
-      setVisualizationGeneration((prev) => ({
-        status: 'error',
-        progress: 100,
-        message,
-        logs: [...prev.logs, message].slice(-8),
-      }));
-      setResult(failedResult);
-      saveSession({
-        id: sessionId,
+      await runRagVisualizationJob({
+        question: context.question,
+        answerText: ragResult.answer,
+        answerSections: ragResult.answer_sections,
+        formulaBlocks: ragResult.formula_blocks,
+        finalResults: ragResult.final_results,
+        citations: ragResult.citations,
+        subject: context.subject,
+        taskType: context.taskType,
+        source: context.source,
+        visualizationSpec: ragResult.visualization_spec,
+        quality: { mode: context.qualityMode },
+      }, {
+        sessionId,
         question: context.question,
         subject: context.subject,
         taskType: context.taskType,
         useWebSearch: context.useWebSearch,
-        result: failedResult,
+        source: context.source,
+        qualityMode: context.qualityMode,
+        ragResult,
+      }, (event) => {
+        if (requestId !== visualizationRequestRef.current) return;
+        if (isArtifactReadyEvent(event) || isJobCompletedEvent(event) || isJobFailedEvent(event) || isJobCancelledEvent(event)) {
+          terminalEventHandled = true;
+        }
+        handleRagVisualizationEvent(event, ragResult, sessionId, context);
       });
-      updateStage('visualization', 'error', message);
-      toast.error('互动可视化生成失败，回答已自动保存到本地学习会话。', 4500);
+    } catch (err) {
+      if (requestId !== visualizationRequestRef.current) return;
+      if (terminalEventHandled) return;
+      const isStillRunning = isGenerationJobStillRunningError(err);
+      const message = isStillRunning
+        ? '正在恢复可视化任务...'
+        : '可视化任务连接中断，正在恢复可视化任务...';
+      setVisualizationGeneration((prev) => ({
+        status: 'generating',
+        progress: Math.max(prev.progress, 12),
+        message,
+        logs: [...prev.logs, message].slice(-8),
+      }));
+      updateStage('visualization', 'running', message);
+      if (!isStillRunning) {
+        toast.warning('可视化任务连接中断，正在尝试从任务快照恢复。', 4200);
+      }
     }
   };
 
@@ -467,6 +755,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
       taskType,
       useWebSearch,
       source: mode === 'student' ? 'student' : 'teacher',
+      qualityMode: fastMode ? 'fast' : 'review',
     });
   };
 
@@ -484,92 +773,85 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
   };
 
   const handleRagVisualizationEvent = (
-    event: DeepInteractionStreamEvent,
+    event: RagVisualizationEvent,
     ragResult: RagResult,
     sessionId: string,
-    context: {
-      question: string;
-      subject: string;
-      taskType: TaskType;
-      useWebSearch: boolean;
-      source: 'student' | 'teacher';
-    },
+    context: RagVisualizationGenerationContext,
   ) => {
-    const progress = 'progress' in event ? event.progress : visualizationGeneration.progress;
-    const message = labelRagVisualizationEvent(event);
+    if (event.type === 'artifact_quality_review_started') {
+      const reviewJobId = typeof (event as { reviewJobId?: unknown }).reviewJobId === 'string'
+        ? (event as unknown as { reviewJobId: string }).reviewJobId
+        : undefined;
+      if (reviewJobId) {
+        subscribeArtifactQualityReviewJob(reviewJobId, sessionId, context);
+      }
+      return;
+    }
 
-    if (event.type === 'artifact_ready') {
-      const artifact = event.artifact;
-      const readyResult = completeRagVisualizationSuccess(ragResult, { artifact });
-      setGeneratedVisualizationArtifact(artifact);
+    if (event.type === 'artifact_quality_updated' && isArtifactQualityUpdatedEvent(event)) {
+      const qualityReport = event.qualityReport;
+      const feedbackLoop = event.feedbackLoop;
+      mergeRagVisualizationQualityUpdate({ ...event, qualityReport, feedbackLoop }, sessionId, context);
+      return;
+    }
+
+    if (event.type === 'artifact_ready' && isArtifactReadyEvent(event)) {
+      const artifact = coerceRagVisualizationArtifact(event.artifact);
+      if (artifact) {
+        // acceptRagVisualizationArtifact owns commitResult(...) and saveSession(...) for every terminal source.
+        acceptRagVisualizationArtifact(artifact, ragResult, sessionId, context);
+      }
+      return;
+    }
+
+    if (isJobCompletedEvent(event)) {
+      const completedResult = event.result;
+      if (
+        isRagSessionGenerationResult(completedResult)
+        && typeof completedResult.qualityReviewJobId === 'string'
+        && completedResult.qualityReviewStatus !== 'completed'
+      ) {
+        subscribeArtifactQualityReviewJob(completedResult.qualityReviewJobId, sessionId, context);
+      }
+      const artifact = extractCompletedRagVisualizationArtifact(event) ?? coerceRagVisualizationArtifact(completedResult);
+      if (artifact) {
+        acceptRagVisualizationArtifact(artifact, ragResult, sessionId, context);
+        return;
+      }
       setVisualizationGeneration((prev) => ({
-        status: 'ready',
+        status: 'generating',
         progress: 100,
-        message: '互动可视化已生成',
-        logs: [...prev.logs, '互动可视化已通过多 Agent 审计。'].slice(-8),
+        message: '可视化任务已完成，正在同步结果...',
+        logs: [...prev.logs, '可视化任务已完成，正在同步结果...'].slice(-8),
       }));
-      updateStage('visualization', 'completed', '互动可视化已通过多 Agent 审计');
-      setProgressModel((prev) => prev
-        ? {
-            ...prev,
-            message: '已自动保存到本地学习会话',
-            summary: {
-              ...(prev.summary ?? {}),
-              '可视化演示': '已生成并自动保存',
-            },
-          }
-        : prev);
-      setResult((prev) => {
-        const base = prev ?? readyResult;
-        const next = completeRagVisualizationSuccess(base, { artifact });
-        saveSession({
-          id: sessionId,
-          question: context.question,
-          subject: context.subject,
-          taskType: context.taskType,
-          useWebSearch: context.useWebSearch,
-          result: next,
-        });
-        return next;
-      });
-      toast.success('互动可视化已生成，已自动保存到本地学习会话。', 4000);
+      return;
+    }
+
+    if (isJobFailedEvent(event) || isJobCancelledEvent(event)) {
+      const message = isJobFailedEvent(event)
+        ? String(event.message ?? '可视化生成失败。')
+        : '可视化生成已取消。';
+      const diagnostics = isJobFailedEvent(event)
+        ? normalizeVisualizationDiagnostics(event.diagnostics)
+        : undefined;
+      completeRagVisualizationJobFailure(message, diagnostics, ragResult, sessionId, context);
       return;
     }
 
     if (event.type === 'error') {
-      const diagnosticSummary = formatVisualizationDiagnostics(event.diagnostics);
-      const errorMessage = diagnosticSummary ? `${event.message}\n${diagnosticSummary}` : event.message;
-      const failedResult = completeRagVisualizationFailure(ragResult, { error: errorMessage });
-      setVisualizationGeneration((prev) => ({
-        status: 'error',
-        progress: 100,
-        message: event.message,
-        logs: [...prev.logs, event.message, ...(diagnosticSummary ? [diagnosticSummary] : [])].slice(-8),
-        diagnostics: event.diagnostics,
-      }));
-      setResult(failedResult);
-      saveSession({
-        id: sessionId,
-        question: context.question,
-        subject: context.subject,
-        taskType: context.taskType,
-        useWebSearch: context.useWebSearch,
-        result: failedResult,
-      });
-      updateStage('visualization', 'error', errorMessage);
-      setProgressModel((prev) => prev
-        ? {
-            ...prev,
-            message: '回答已自动保存，可视化生成失败',
-            summary: {
-              ...(prev.summary ?? {}),
-              '可视化演示': '生成失败，回答已保存',
-            },
-          }
-        : prev);
-      toast.error('互动可视化生成失败，回答已自动保存到本地学习会话。', 4500);
+      const errorEvent = event as Extract<DeepInteractionStreamEvent, { type: 'error' }>;
+      completeRagVisualizationJobFailure(
+        errorEvent.message,
+        normalizeVisualizationDiagnostics(errorEvent.diagnostics),
+        ragResult,
+        sessionId,
+        context,
+      );
       return;
     }
+
+    const progress = getRagVisualizationEventProgress(event, visualizationGeneration.progress);
+    const message = labelRagVisualizationEvent(event);
 
     if (message) {
       setVisualizationGeneration((prev) => ({
@@ -580,6 +862,473 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
       }));
     }
   };
+
+  const handleRagSessionGenerationEvent = (
+    event: GenerationJobEvent,
+    options: RagSessionGenerationEventOptions,
+  ) => {
+    if (event.type === 'answer_ready') return;
+
+    let currentResult = resultRef.current;
+    const restoredResult = isJobCompletedEvent(event)
+      ? coerceRagSessionGenerationResult(event.result)
+      : null;
+
+    if (!currentResult && restoredResult) {
+      clearStreamingAnswerPreview();
+      currentResult = restoredResult.visualization_status
+        ? restoredResult
+        : createRagVisualizationDraftResult(restoredResult, {
+            visualizationMode: shouldStartRagVisualization({
+              visualizationMode: options.visualizationMode,
+              demoFallback: restoredResult.demo_fallback,
+              backendShouldGenerate: restoredResult.should_generate_visualization,
+            }) ? 'auto' : 'off',
+          });
+      commitResult(currentResult);
+      if (currentResult.visualization_artifact) {
+        setGeneratedVisualizationArtifact(currentResult.visualization_artifact);
+      }
+      updateStage('generate', 'completed', '生成任务已恢复');
+      if (currentResult.visualization_status === 'ready') {
+        updateStage('visualization', 'completed', '互动可视化已恢复');
+        setVisualizationGeneration((prev) => ({
+          status: 'ready',
+          progress: 100,
+          message: '互动可视化已恢复',
+          logs: [...prev.logs, '互动可视化已从任务快照恢复。'].slice(-8),
+        }));
+      }
+    }
+
+    if (!currentResult) {
+      if (
+        isArtifactReadyEvent(event)
+        || isArtifactQualityUpdatedEvent(event)
+        || event.type === 'artifact_quality_review_started'
+      ) {
+        pendingRagSessionGenerationEventsRef.current.push(event);
+      }
+      return;
+    }
+
+    let sessionId = options.getSessionId();
+    if (!sessionId) {
+      sessionId = saveSession({
+        question: options.context.question,
+        subject: options.context.subject,
+        taskType: options.context.taskType,
+        useWebSearch: options.context.useWebSearch,
+        result: currentResult,
+      }, options.saveMode ? { mode: options.saveMode } : undefined);
+      options.setSessionId(sessionId);
+    }
+
+    if (pendingRagSessionGenerationEventsRef.current.length > 0) {
+      const pendingEvents = pendingRagSessionGenerationEventsRef.current;
+      pendingRagSessionGenerationEventsRef.current = [];
+      for (const pendingEvent of pendingEvents) {
+        handleRagVisualizationEvent(pendingEvent, resultRef.current ?? currentResult, sessionId, options.context);
+      }
+      currentResult = resultRef.current ?? currentResult;
+    }
+
+    if (
+      isArtifactReadyEvent(event)
+      || isArtifactQualityUpdatedEvent(event)
+      || event.type === 'artifact_quality_review_started'
+      || isJobCompletedEvent(event)
+      || isJobFailedEvent(event)
+      || isJobCancelledEvent(event)
+    ) {
+      handleRagVisualizationEvent(event, currentResult, sessionId, options.context);
+    }
+  };
+
+  const flushPendingRagSessionGenerationEvents = (options: RagSessionGenerationEventOptions) => {
+    const currentResult = resultRef.current;
+    if (!currentResult || pendingRagSessionGenerationEventsRef.current.length === 0) return;
+
+    let sessionId = options.getSessionId();
+    if (!sessionId) {
+      sessionId = saveSession({
+        question: options.context.question,
+        subject: options.context.subject,
+        taskType: options.context.taskType,
+        useWebSearch: options.context.useWebSearch,
+        result: currentResult,
+      }, options.saveMode ? { mode: options.saveMode } : undefined);
+      options.setSessionId(sessionId);
+    }
+
+    const pendingEvents = pendingRagSessionGenerationEventsRef.current;
+    pendingRagSessionGenerationEventsRef.current = [];
+    for (const pendingEvent of pendingEvents) {
+      handleRagVisualizationEvent(pendingEvent, resultRef.current ?? currentResult, sessionId, options.context);
+    }
+  };
+
+  function restoreActiveVisualizationJobUi(
+    activeJob: ActiveRagVisualizationJob,
+    ragResult: RagResult,
+  ) {
+    selectSession(activeJob.sessionId);
+    setSubject(activeJob.subject);
+    setTaskType(activeJob.taskType as TaskType);
+    setQuestion(activeJob.question);
+    setUseWebSearch(activeJob.useWebSearch);
+    commitResult(ragResult);
+    setGeneratedVisualizationArtifact(null);
+    setVisualizationGeneration({
+      status: 'generating',
+      progress: 12,
+      message: '正在恢复可视化任务...',
+      logs: ['正在恢复可视化任务...'],
+    });
+    setProgressModel({ mode: 'rag', stages: createRagStages(), message: '正在恢复可视化任务...' });
+  }
+
+  useEffect(() => {
+    const activeRun = initialRunId
+      ? { runId: initialRunId, rootJobId: '', createdAt: new Date().toISOString() }
+      : readActiveRagRun();
+    if (!activeRun || resumedRagRunRef.current === activeRun.runId) return;
+
+    resumedRagRunRef.current = activeRun.runId;
+    let answerReadySessionId: string | null = null;
+    const ragVisualizationContext: RagVisualizationGenerationContext = {
+      question: question || `RAG run ${activeRun.runId}`,
+      subject,
+      taskType,
+      useWebSearch,
+      source: mode === 'student' ? 'student' : 'teacher',
+      qualityMode: fastMode ? 'fast' : 'review',
+    };
+
+    const resumeTimer = window.setTimeout(() => {
+      setAsking(true);
+      setError(null);
+      pendingRagSessionGenerationEventsRef.current = [];
+      clearStreamingAnswerPreview();
+      commitResult(null);
+      setGeneratedVisualizationArtifact(null);
+      setVisualizationGeneration({
+        status: 'generating',
+        progress: 8,
+        message: `正在恢复生成任务 ${activeRun.runId.slice(-8)}...`,
+        logs: [`正在恢复生成任务 ${activeRun.runId.slice(-8)}...`],
+      });
+      progressStartTimeRef.current = currentTimestampMs();
+      setProgressModel({ mode: 'rag', stages: createRagStages(), message: '正在恢复后端生成任务...' });
+
+      void resumeRagRunFromBrowser(activeRun.runId, {
+        onProgress: (event) => {
+          updateStage(event.stage, 'running', event.message);
+        },
+        onAnswerDelta: (delta) => {
+          streamingAnswerRawRef.current += delta;
+          scheduleStreamingAnswerPreviewUpdate(streamingAnswerRawRef.current);
+          if (!streamingStartedRef.current) {
+            streamingStartedRef.current = true;
+            updateStage('generate', 'running', '正在生成回答...');
+          }
+        },
+        onAnswerReady: (partial) => {
+          const partialRagResult = partial as unknown as RagResult;
+          const shouldGenerateVisualization = shouldStartRagVisualization({
+            visualizationMode,
+            demoFallback: partialRagResult.demo_fallback,
+            backendShouldGenerate: partialRagResult.should_generate_visualization,
+          });
+          const partialResult = createRagVisualizationDraftResult(partialRagResult, {
+            visualizationMode: shouldGenerateVisualization ? 'auto' : 'off',
+          });
+          clearStreamingAnswerPreview();
+          commitResult(partialResult);
+          updateStage('generate', 'completed', '结构化回答已恢复');
+          if (shouldGenerateVisualization) {
+            updateStage('visualization', 'running', '后端正在生成互动可视化...');
+          }
+          answerReadySessionId = saveSession({
+            question: ragVisualizationContext.question,
+            subject: ragVisualizationContext.subject,
+            taskType: ragVisualizationContext.taskType,
+            useWebSearch: ragVisualizationContext.useWebSearch,
+            result: partialResult,
+          });
+          flushPendingRagSessionGenerationEvents({
+            context: ragVisualizationContext,
+            visualizationMode,
+            getSessionId: () => answerReadySessionId,
+            setSessionId: (sessionId) => {
+              answerReadySessionId = sessionId;
+            },
+          });
+        },
+        onJobEvent: (event) => {
+          handleRagSessionGenerationEvent(event, {
+            context: ragVisualizationContext,
+            visualizationMode,
+            getSessionId: () => answerReadySessionId,
+            setSessionId: (sessionId) => {
+              answerReadySessionId = sessionId;
+            },
+          });
+        },
+      }).then((data) => {
+        const ragResult = data as unknown as RagResult;
+        const next = ragResult.visualization_status
+          ? ragResult
+          : createRagVisualizationDraftResult(ragResult, {
+              visualizationMode: shouldStartRagVisualization({
+                visualizationMode,
+                demoFallback: ragResult.demo_fallback,
+                backendShouldGenerate: ragResult.should_generate_visualization,
+              }) ? 'auto' : 'off',
+            });
+        clearStreamingAnswerPreview();
+        commitResult(next);
+        const sessionId = answerReadySessionId ?? saveSession({
+          question: ragVisualizationContext.question,
+          subject: ragVisualizationContext.subject,
+          taskType: ragVisualizationContext.taskType,
+          useWebSearch: ragVisualizationContext.useWebSearch,
+          result: next,
+        });
+        saveSession({
+          id: sessionId,
+          question: ragVisualizationContext.question,
+          subject: ragVisualizationContext.subject,
+          taskType: ragVisualizationContext.taskType,
+          useWebSearch: ragVisualizationContext.useWebSearch,
+          result: next,
+        });
+        updateStage('generate', 'completed', '生成任务已恢复');
+        updateStage(
+          'visualization',
+          next.visualization_status === 'ready' ? 'completed' : next.visualization_status === 'failed' ? 'warning' : 'skipped',
+          next.visualization_status === 'ready'
+            ? '互动可视化已恢复'
+            : next.visualization_error ?? '生成任务已恢复',
+        );
+        setProgressModel((prev) => prev ? { ...prev, message: '生成任务已恢复' } : prev);
+      }).catch((err) => {
+        const attribution = attributeAskError(err);
+        setError(`${attribution.userMessage}（追踪 ${activeRun.runId.slice(-8)}）`);
+        setProgressModel((prev) => prev ? { ...prev, message: '恢复生成任务失败' } : prev);
+      }).finally(() => {
+        setAsking(false);
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(resumeTimer);
+    };
+    // Resume should run once per URL/public run id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRunId]);
+
+  useEffect(() => {
+    if (initialRunId) return;
+
+    const activeJob = readActiveRagSessionGenerationJob();
+    if (!activeJob || resumedRagSessionJobRef.current === activeJob.jobId) return;
+
+    const input = activeJob.input;
+    const restoredQuestion = (input.question ?? '').trim();
+    if (!restoredQuestion) return;
+
+    const restoredSubject = input.subjectId ?? subject;
+    const restoredTaskType = (input.taskType ?? taskType) as TaskType;
+    const restoredUseWebSearch = input.retrieval?.useWebSearch ?? useWebSearch;
+    const restoredQualityMode = coerceRagQualityMode(input.quality?.mode);
+    const restoredVisualizationMode = input.visualization?.mode ?? 'auto';
+    const restoredSource = input.source ?? (mode === 'student' ? 'student' : 'teacher');
+    const ragVisualizationContext: RagVisualizationGenerationContext = {
+      question: restoredQuestion,
+      subject: restoredSubject,
+      taskType: restoredTaskType,
+      useWebSearch: restoredUseWebSearch,
+      source: restoredSource,
+      qualityMode: restoredQualityMode,
+    };
+    let answerReadySessionId: string | null = null;
+    resumedRagSessionJobRef.current = activeJob.jobId;
+    const resumeTimer = window.setTimeout(() => {
+      userEditedRef.current = true;
+      setAsking(true);
+      setError(null);
+      pendingRagSessionGenerationEventsRef.current = [];
+      setQuestion(restoredQuestion);
+      setSubject(restoredSubject);
+      setTaskType(restoredTaskType);
+      setUseWebSearch(restoredUseWebSearch);
+      setVisualizationMode(restoredVisualizationMode);
+      clearStreamingAnswerPreview();
+      commitResult(null);
+      setGeneratedVisualizationArtifact(null);
+      setVisualizationGeneration({
+        status: 'generating',
+        progress: 8,
+        message: '正在恢复后端生成任务...',
+        logs: ['正在恢复后端生成任务...'],
+      });
+      progressStartTimeRef.current = currentTimestampMs();
+      setProgressModel({ mode: 'rag', stages: createRagStages(), message: '正在恢复后端生成任务...' });
+
+      void resumeRagSessionGenerationFromBrowser(activeJob, {
+        onProgress: (event) => {
+          updateStage(event.stage, 'running', event.message);
+        },
+        onAnswerDelta: (delta) => {
+          streamingAnswerRawRef.current += delta;
+          scheduleStreamingAnswerPreviewUpdate(streamingAnswerRawRef.current);
+          if (!streamingStartedRef.current) {
+            streamingStartedRef.current = true;
+            updateStage('generate', 'running', '正在生成回答...');
+          }
+        },
+        onAnswerReady: (partial) => {
+          const partialRagResult = partial as unknown as RagResult;
+          const shouldGenerateVisualization = shouldStartRagVisualization({
+            visualizationMode: restoredVisualizationMode,
+            demoFallback: partialRagResult.demo_fallback,
+            backendShouldGenerate: partialRagResult.should_generate_visualization,
+          });
+          const partialResult = createRagVisualizationDraftResult(partialRagResult, {
+            visualizationMode: shouldGenerateVisualization ? 'auto' : 'off',
+          });
+          clearStreamingAnswerPreview();
+          commitResult(partialResult);
+          updateStage('generate', 'completed', '结构化回答已恢复');
+          if (shouldGenerateVisualization) {
+            updateStage('visualization', 'running', '后端正在生成互动可视化...');
+          }
+          answerReadySessionId = saveSession({
+            question: restoredQuestion,
+            subject: restoredSubject,
+            taskType: restoredTaskType,
+            useWebSearch: restoredUseWebSearch,
+            result: partialResult,
+          });
+          flushPendingRagSessionGenerationEvents({
+            context: ragVisualizationContext,
+            visualizationMode: restoredVisualizationMode,
+            getSessionId: () => answerReadySessionId,
+            setSessionId: (sessionId) => {
+              answerReadySessionId = sessionId;
+            },
+          });
+        },
+        onQualityReady: () => {
+          setProgressModel((prev) => prev
+            ? { ...prev, message: '质量审计完成，正在同步...' }
+            : prev);
+        },
+        onJobEvent: (event) => {
+          handleRagSessionGenerationEvent(event, {
+            context: ragVisualizationContext,
+            visualizationMode: restoredVisualizationMode,
+            getSessionId: () => answerReadySessionId,
+            setSessionId: (sessionId) => {
+              answerReadySessionId = sessionId;
+            },
+          });
+        },
+      }).then((data) => {
+        const ragResult = data as unknown as RagResult;
+        const next = ragResult.visualization_status
+          ? ragResult
+          : createRagVisualizationDraftResult(ragResult, {
+              visualizationMode: shouldStartRagVisualization({
+                visualizationMode: restoredVisualizationMode,
+                demoFallback: ragResult.demo_fallback,
+                backendShouldGenerate: ragResult.should_generate_visualization,
+              }) ? 'auto' : 'off',
+            });
+        clearStreamingAnswerPreview();
+        commitResult(next);
+        const sessionId = answerReadySessionId ?? saveSession({
+          question: restoredQuestion,
+          subject: restoredSubject,
+          taskType: restoredTaskType,
+          useWebSearch: restoredUseWebSearch,
+          result: next,
+        });
+        if (answerReadySessionId) {
+          saveSession({
+            id: sessionId,
+            question: restoredQuestion,
+            subject: restoredSubject,
+            taskType: restoredTaskType,
+            useWebSearch: restoredUseWebSearch,
+            result: next,
+          });
+        }
+        updateStage('generate', 'completed', '结构化回答已恢复');
+        updateStage(
+          'visualization',
+          next.visualization_status === 'ready' ? 'completed' : next.visualization_status === 'failed' ? 'warning' : 'skipped',
+          next.visualization_status === 'ready'
+            ? '互动可视化已恢复'
+            : next.visualization_error ?? '后端生成任务已恢复',
+        );
+        setProgressModel((prev) => prev ? { ...prev, message: '生成任务已恢复' } : prev);
+      }).catch((err) => {
+        const attribution = attributeAskError(err);
+        setError(attribution.userMessage);
+        setProgressModel((prev) => prev ? { ...prev, message: '恢复生成任务失败' } : prev);
+      }).finally(() => {
+        setAsking(false);
+      });
+    }, 0);
+    return () => {
+      window.clearTimeout(resumeTimer);
+    };
+    // Resume should run once per persisted active top-level RAG job marker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRunId]);
+
+  useEffect(() => {
+    const activeJob = readActiveVisualizationJob();
+    if (!activeJob || resumedVisualizationJobRef.current === activeJob.jobId) return;
+    const ragResult = coerceStoredRagResult(activeJob.ragResult);
+    if (!ragResult) return;
+
+    let terminalEventHandled = false;
+    const requestId = ++visualizationRequestRef.current;
+    resumedVisualizationJobRef.current = activeJob.jobId;
+    const restoreTimer = window.setTimeout(() => {
+      if (requestId === visualizationRequestRef.current && resultRef.current?.visualization_status !== 'ready') {
+        restoreActiveVisualizationJobUi(activeJob, ragResult);
+      }
+    }, 0);
+
+    void resumeRagVisualizationJob(activeJob, (event) => {
+      if (requestId !== visualizationRequestRef.current) return;
+      if (isArtifactReadyEvent(event) || isJobCompletedEvent(event) || isJobFailedEvent(event) || isJobCancelledEvent(event)) {
+        terminalEventHandled = true;
+      }
+      handleRagVisualizationEvent(event, ragResult, activeJob.sessionId, activeRagVisualizationContext(activeJob));
+    }).catch((err) => {
+      if (requestId !== visualizationRequestRef.current || terminalEventHandled) return;
+      const message = isGenerationJobStillRunningError(err)
+        ? '正在恢复可视化任务...'
+        : '可视化任务连接中断，正在恢复可视化任务...';
+      setVisualizationGeneration((prev) => ({
+        status: 'generating',
+        progress: Math.max(prev.progress, 12),
+        message,
+        logs: [...prev.logs, message].slice(-8),
+      }));
+      updateStage('visualization', 'running', message);
+    });
+    return () => {
+      window.clearTimeout(restoreTimer);
+    };
+    // Resume should run once per persisted active job marker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readActiveVisualizationJob, resumeRagVisualizationJob]);
 
   const resetPlanningState = () => {
     setPendingRagPlan(null);
@@ -680,10 +1429,13 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setAsking(true);
     setError(null);
     setLabBridgeMessage(null);
+    commitResult(null);
+    pendingRagSessionGenerationEventsRef.current = [];
+    clearStreamingAnswerPreview();
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
 
-    progressStartTimeRef.current = Date.now();
+    progressStartTimeRef.current = currentTimestampMs();
     setProgressModel({ mode: 'rag', stages: createRagStages(), message: '正在解析问题...' });
     updateStage('parse', 'running');
 
@@ -691,15 +1443,111 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     updateStage('parse', 'completed');
     updateStage('retrieve_local', 'running', '正在检索本地课程资料...');
 
+    const createdRun = { id: null as string | null };
     try {
-      const data = await askRagFromBrowser({
+      const qualityMode: RagV1QualityMode = fastMode ? 'fast' : 'review';
+      let answerReadySessionId: string | null = null;
+      const ragVisualizationContext: RagVisualizationGenerationContext = {
         question: submitQuestion,
-        subjectId: subject,
+        subject,
         taskType,
-        retrieval: { useWebSearch },
-        quality: { mode: fastMode ? 'fast' : 'highQuality' },
-        visualization: { mode: visualizationMode },
-      });
+        useWebSearch,
+        source: mode === 'student' ? 'student' : 'teacher',
+        qualityMode,
+      };
+      const data = await askRagFromBrowserStream(
+        {
+          question: submitQuestion,
+          subjectId: subject,
+          taskType,
+          source: ragVisualizationContext.source,
+          clientSessionId: currentSessionId ?? undefined,
+          retrieval: { useWebSearch },
+          quality: { mode: qualityMode },
+          visualization: { mode: visualizationMode },
+        },
+        {
+          onRunCreated: (run) => {
+            createdRun.id = run.runId;
+            updatePublicRunUrl(run.runId);
+            setProgressModel((prev) => prev
+              ? { ...prev, message: `已创建 run ${run.runId.slice(-8)}，正在监听生成...` }
+              : prev);
+          },
+          onProgress: (event) => {
+            updateStage(event.stage, 'running', event.message);
+          },
+          onAnswerDelta: (delta) => {
+            streamingAnswerRawRef.current += delta;
+            scheduleStreamingAnswerPreviewUpdate(streamingAnswerRawRef.current);
+            if (!streamingStartedRef.current) {
+              streamingStartedRef.current = true;
+              updateStage('generate', 'running', '正在生成回答...');
+              setProgressModel((prev) => prev
+                ? { ...prev, message: '正在生成回答，质量审计稍后开始...' }
+                : prev);
+            }
+          },
+          onAnswerReady: (partial) => {
+            const partialRagResult = partial as unknown as RagResult;
+            const shouldGenerateVisualization = shouldStartRagVisualization({
+              visualizationMode,
+              demoFallback: partialRagResult.demo_fallback,
+              backendShouldGenerate: partialRagResult.should_generate_visualization,
+            });
+            const partialResult = createRagVisualizationDraftResult(partial as unknown as RagResult, {
+              visualizationMode: shouldGenerateVisualization ? 'auto' : 'off',
+            });
+            clearStreamingAnswerPreview();
+            commitResult(partialResult);
+            updateStage('generate', 'completed', '结构化回答已生成，正在质量审计...');
+            if (shouldGenerateVisualization) {
+              updateStage('visualization', 'running', '后端正在生成互动可视化...');
+              setVisualizationGeneration({
+                status: 'generating',
+                progress: 8,
+                message: '后端正在生成互动可视化...',
+                logs: ['回答已生成，后端正在继续生成互动可视化...'],
+              });
+            }
+            setProgressModel((prev) => prev
+              ? { ...prev, message: '回答已生成，正在质量审计...' }
+              : prev);
+            answerReadySessionId = saveSession({
+              question: submitQuestion,
+              subject,
+              taskType,
+              useWebSearch,
+              result: partialResult,
+            }, { mode: sessionSaveMode });
+            flushPendingRagSessionGenerationEvents({
+              context: ragVisualizationContext,
+              visualizationMode,
+              getSessionId: () => answerReadySessionId,
+              setSessionId: (sessionId) => {
+                answerReadySessionId = sessionId;
+              },
+              saveMode: sessionSaveMode,
+            });
+          },
+          onQualityReady: () => {
+            setProgressModel((prev) => prev
+              ? { ...prev, message: '质量审计完成，正在收尾...' }
+              : prev);
+          },
+          onJobEvent: (event) => {
+            handleRagSessionGenerationEvent(event, {
+              context: ragVisualizationContext,
+              visualizationMode,
+              getSessionId: () => answerReadySessionId,
+              setSessionId: (sessionId) => {
+                answerReadySessionId = sessionId;
+              },
+              saveMode: sessionSaveMode,
+            });
+          },
+        },
+      );
       const ragResult = data as unknown as RagResult;
 
       const localCount = ragResult.source_summary?.local_count ?? 0;
@@ -733,14 +1581,16 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
         demoFallback: ragResult.demo_fallback,
         backendShouldGenerate: ragResult.should_generate_visualization,
       });
-      const resultToSave = createRagVisualizationDraftResult(ragResult, {
-        visualizationMode: shouldGenerateVisualization ? 'auto' : 'off',
-      });
+      const resultToSave = ragResult.visualization_status
+        ? ragResult
+        : createRagVisualizationDraftResult(ragResult, {
+            visualizationMode: shouldGenerateVisualization ? 'auto' : 'off',
+          });
 
       const hasManualHint = visualizationMode === 'manual' && Boolean(ragResult.visualization_hint);
 
       if (shouldGenerateVisualization) {
-        updateStage('visualization', 'running', '正在启动多 Agent 互动可视化生成...');
+        updateStage('visualization', 'running', '正在启动互动可视化生成...');
       } else if (hasManualHint) {
         updateStage('visualization', 'completed', '可点击「生成互动可视化」按钮手动触发');
       } else {
@@ -759,36 +1609,40 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                 '可视化演示': shouldGenerateVisualization
                   ? '互动可视化生成中'
                   : hasManualHint ? '可手动触发生成' : '未生成',
-                '总耗时': `${((Date.now() - progressStartTimeRef.current) / 1000).toFixed(1)} 秒`,
+                '总耗时': `${((currentTimestampMs() - progressStartTimeRef.current) / 1000).toFixed(1)} 秒`,
               },
             }
           : prev,
       );
 
-      setResult(resultToSave);
+      clearStreamingAnswerPreview();
+      commitResult(resultToSave);
       toast.success(
         shouldGenerateVisualization
           ? '回答已自动保存，正在生成互动可视化。'
           : sessionSaveMode === 'update-current' ? '当前本地学习会话已更新。' : '回答已自动保存到本地学习会话。',
         4000,
       );
-      const sessionId = saveSession({
-        question: submitQuestion,
-        subject,
-        taskType,
-        useWebSearch,
-        result: resultToSave,
-      }, { mode: sessionSaveMode });
-      if (shouldGenerateVisualization) {
-        void startVisualizationGeneration(resultToSave, sessionId, {
+      if (answerReadySessionId) {
+        saveSession({
+          id: answerReadySessionId,
           question: submitQuestion,
           subject,
           taskType,
           useWebSearch,
-          source: mode === 'student' ? 'student' : 'teacher',
+          result: resultToSave,
         });
+      } else {
+        saveSession({
+          question: submitQuestion,
+          subject,
+          taskType,
+          useWebSearch,
+          result: resultToSave,
+        }, { mode: sessionSaveMode });
       }
     } catch (err) {
+      clearStreamingAnswerPreview();
       const attribution = attributeAskError(err);
       setProgressModel((prev) => {
         if (!prev) return prev;
@@ -804,7 +1658,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                 return { ...s, status: 'error' as const, detail: attribution.userMessage };
               }
               if (s.status === 'running') {
-                return { ...s, status: 'completed' as const, completedAt: Date.now() };
+                return { ...s, status: 'completed' as const, completedAt: currentTimestampMs() };
               }
               return s;
             }
@@ -820,7 +1674,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
       toast.error('生成失败，请重试');
       if (activeDemo) {
         const fallback = createDemoFallback(activeDemo, activeSubject);
-        setResult(fallback);
+        commitResult(fallback);
         setGeneratedVisualizationArtifact(null);
         setVisualizationGeneration(idleVisualizationState());
         saveSession({
@@ -833,7 +1687,9 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
         }, { mode: sessionSaveMode });
         setError('RAG 请求失败，已切换为演示样例结果。');
       } else {
-        setError(message);
+        setError(createdRun.id
+          ? `已创建 run，但订阅恢复失败（runId: ${createdRun.id}，追踪 ${createdRun.id.slice(-8)}）：${message}`
+          : message);
       }
     } finally {
       setAsking(false);
@@ -858,7 +1714,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setActiveDemoId(null);
     userEditedRef.current = false;
     setQuestion('');
-    setResult(null);
+    commitResult(null);
+    clearStreamingAnswerPreview();
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
     setError(null);
@@ -873,7 +1730,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setTaskType(session.taskType);
     setQuestion(session.question);
     setUseWebSearch(session.useWebSearch);
-    setResult(session.result as RagResult | null);
+    commitResult(session.result as RagResult | null);
+    clearStreamingAnswerPreview();
     setGeneratedVisualizationArtifact((session.result as RagResult | null)?.visualization_artifact ?? null);
     setVisualizationGeneration(
       restoreRagVisualizationGenerationState(session.result as RagResult | null),
@@ -895,7 +1753,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setPendingSessionSaveConfirmation(null);
     resetPlanningState();
     if (currentSessionId === session.id) {
-      setResult(null);
+      commitResult(null);
+      clearStreamingAnswerPreview();
       setGeneratedVisualizationArtifact(null);
       setVisualizationGeneration(idleVisualizationState());
       setError(null);
@@ -906,7 +1765,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     clearStoredSessions();
     setPendingSessionSaveConfirmation(null);
     resetPlanningState();
-    setResult(null);
+    commitResult(null);
+    clearStreamingAnswerPreview();
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
     setError(null);
@@ -920,7 +1780,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
     setSubject(demo.subject);
     setTaskType(demo.taskType);
     setQuestion(demo.question);
-    setResult(null);
+    commitResult(null);
+    clearStreamingAnswerPreview();
     setGeneratedVisualizationArtifact(null);
     setVisualizationGeneration(idleVisualizationState());
     setError(null);
@@ -977,6 +1838,7 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
 
   useEffect(() => () => {
     if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+    if (streamingPreviewTimerRef.current !== null) window.clearTimeout(streamingPreviewTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -1101,7 +1963,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                     setPendingSessionSaveConfirmation(null);
                     resetPlanningState();
                     setSubject(event.target.value);
-                    setResult(null);
+                    commitResult(null);
+                    clearStreamingAnswerPreview();
                     setSkillOpen(false);
                   }}
                   disabled={loadingSubjects}
@@ -1251,6 +2114,12 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                 />
               )}
 
+              {progressModel && (
+                <div data-rag-main-progress data-rag-motion>
+                  <RealisticProgressPanel model={progressModel} variant="compact" />
+                </div>
+              )}
+
               <section
                 data-rag-mobile-info-panel
                 hidden={!rightPanelOpen}
@@ -1261,15 +2130,12 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                   <span>本地 {result?.source_summary.local_count ?? 0} · 网络 {result?.source_summary.web_count ?? 0}</span>
                 </div>
                 {progressModel && <p className="mt-2 text-[var(--stemotion-primary-strong)]">{progressModel.message}</p>}
+                <div className="mt-3 space-y-3">
+                  {renderSidePanelContent()}
+                </div>
               </section>
 
-              {progressModel && (
-                <div data-rag-main-progress data-rag-motion>
-                  <RealisticProgressPanel model={progressModel} variant="compact" />
-                </div>
-              )}
-
-              <section data-rag-motion className="stemotion-elevated rounded-lg p-4 sm:p-5" aria-live="polite">
+              <section data-rag-motion className="stemotion-elevated min-h-[360px] rounded-lg p-4 sm:min-h-[420px] sm:p-5" aria-live="polite">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-[var(--stemotion-primary-strong)]">智能回答</p>
@@ -1357,6 +2223,8 @@ export default function SubjectRagConsole({ mode = 'student' }: { mode?: RagMode
                     AI 生成内容，仅供学习参考，请结合课程教材与教师要求核验。
                   </p>
                 </div>
+              ) : hasStreamingAnswerPreview ? (
+                <StreamingAnswerPanel preview={streamingAnswerPreview} status={streamingAnswerStatus} />
               ) : (
                 <div className="rounded-lg border border-dashed border-[var(--stemotion-border-strong)] bg-[#fbfaf6] px-4 py-8 text-center">
                   <p className="text-sm font-semibold text-[var(--stemotion-ink)]">从底部输入框开始</p>
@@ -1681,7 +2549,7 @@ function RagVisualizationPanel({
       >
         <div>
           <div className="text-xs font-black uppercase tracking-wider text-blue-600">
-            多 Agent 互动可视化
+            互动可视化
           </div>
           <h2 className={compactReadyHeader ? 'mt-0.5 text-base font-black tracking-tight text-slate-950' : 'mt-1 text-xl font-black tracking-tight text-slate-950 lg:text-2xl'}>
             {artifact?.title ?? (isManualWaiting ? '可视化提示' : '正在生成题目专属互动可视化')}
@@ -1689,7 +2557,7 @@ function RagVisualizationPanel({
           <p className={compactReadyHeader ? 'hidden' : 'mt-1 line-clamp-2 max-w-4xl text-xs leading-relaxed text-slate-600 sm:text-sm'}>
             {artifact?.description ?? (isManualWaiting
               ? '已检测到可可视化的内容，点击下方按钮手动生成互动可视化。'
-              : (generation.message || 'RAG 回答已完成，下方正在通过题目提取、HTML 生成、Pedagogy/UX/Safety/Runtime 审计与修复流程生成互动 artifact。'))}
+              : (generation.message || 'RAG 回答已完成，下方正在生成互动可视化，并在发布后更新质量报告。'))}
           </p>
         </div>
         {artifact && schemaReady && (
@@ -1749,10 +2617,10 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-slate-500">
-                {failed ? '生成未通过' : 'Artifact Skeleton'}
+                {failed ? '生成未通过' : 'Visualization Skeleton'}
               </div>
               <div className="mt-2 text-lg font-black text-slate-900">
-                {failed ? '互动可视化暂未生成' : generation.message || '多 Agent 审计生成中'}
+                {failed ? '互动可视化暂未生成' : generation.message || '互动可视化生成中'}
               </div>
             </div>
             {!failed && <Loader2 size={24} className="animate-spin text-blue-600" />}
@@ -1765,14 +2633,14 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
             />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {['题目提取', 'HTML 生成', '多 Agent 审计'].map((label, index) => (
+            {['题目提取', 'HTML 生成', '质量检查'].map((label, index) => (
               <div key={label} className="min-h-[92px] rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="text-xs font-black uppercase tracking-wider text-slate-400">0{index + 1}</div>
                 <div className="mt-2 text-sm font-bold text-slate-800">{label}</div>
                 <div className="mt-1 text-xs leading-relaxed text-slate-500">
                   {index === 0 && '还原原题、变量和观察目标'}
                   {index === 1 && '生成自包含 SVG/Canvas 互动页'}
-                  {index === 2 && 'Pedagogy / UX / Safety / Runtime'}
+                  {index === 2 && '发布后质量报告'}
                 </div>
               </div>
             ))}
@@ -1780,7 +2648,7 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
           {failed && (missing.length > 0 || repairAttempts !== undefined) && (
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
               {repairAttempts !== undefined && (
-                <div className="font-bold">已尝试 {repairAttempts} 轮修复。</div>
+                <div className="font-bold">历史修复诊断：{repairAttempts} 条记录。</div>
               )}
               {missing.length > 0 && (
                 <div className="mt-1">
@@ -1811,9 +2679,84 @@ function RagVisualizationSkeleton({ generation }: { generation: RagVisualization
 function formatVisualizationDiagnostics(diagnostics?: RagVisualizationFailureDiagnostics): string {
   if (!diagnostics) return '';
   const parts: string[] = [];
-  if (diagnostics.repairAttempts !== undefined) parts.push(`已尝试 ${diagnostics.repairAttempts} 轮修复`);
+  if (diagnostics.repairAttempts !== undefined) parts.push(`历史修复诊断：${diagnostics.repairAttempts} 条记录`);
   if (diagnostics.missing?.length) parts.push(`缺失合约项：${diagnostics.missing.slice(0, 8).join('、')}`);
   return parts.join('；');
+}
+
+function extractCompletedRagVisualizationArtifact(event: GenerationJobEvent): InteractionArtifact | null {
+  if (!isJobCompletedEvent(event)) return null;
+  if (isRagSessionGenerationResult(event.result)) {
+    return coerceRagVisualizationArtifact(event.result.artifact);
+  }
+  return coerceRagVisualizationArtifact(event.result);
+}
+
+function coerceRagSessionGenerationResult(value: unknown): RagResult | null {
+  if (!isRagSessionGenerationResult(value)) return null;
+  const legacy = toLegacyRagResult(value.answer as RagV1AskResponse) as unknown as RagResult;
+  const artifact = coerceRagVisualizationArtifact(value.artifact);
+  return {
+    ...legacy,
+    visualization_status: value.visualizationStatus,
+    ...(artifact ? { visualization_artifact: artifact } : {}),
+    ...(typeof value.visualizationError === 'string' ? { visualization_error: value.visualizationError } : {}),
+  };
+}
+
+function coerceRagVisualizationArtifact(value: unknown): InteractionArtifact | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<InteractionArtifact>;
+  const schema = candidate.schema as { type?: unknown } | undefined;
+  if (candidate.type !== 'rag_visualization' && schema?.type !== 'rag_visualization') return null;
+  if (typeof candidate.id !== 'string') return null;
+  if (typeof candidate.title !== 'string') return null;
+  if (!candidate.schema || typeof candidate.schema !== 'object') return null;
+  return value as InteractionArtifact;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeVisualizationDiagnostics(diagnostics: unknown): RagVisualizationFailureDiagnostics | undefined {
+  if (!diagnostics || typeof diagnostics !== 'object') return undefined;
+  const value = diagnostics as { missing?: unknown; repairAttempts?: unknown };
+  return {
+    ...(Array.isArray(value.missing)
+      ? { missing: value.missing.filter((item): item is string => typeof item === 'string') }
+      : {}),
+    ...(typeof value.repairAttempts === 'number' ? { repairAttempts: value.repairAttempts } : {}),
+  };
+}
+
+function coerceRagQualityMode(value: unknown): RagV1QualityMode {
+  return value === 'fast' || value === 'review' || value === 'highQuality' ? value : 'review';
+}
+
+function getRagVisualizationEventProgress(event: RagVisualizationEvent, fallback: number): number {
+  const progress = (event as { progress?: unknown }).progress;
+  return typeof progress === 'number' && Number.isFinite(progress) ? progress : fallback;
+}
+
+function coerceStoredRagResult(value: unknown): RagResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<RagResult>;
+  if (typeof candidate.answer !== 'string') return null;
+  if (!Array.isArray(candidate.citations)) return null;
+  if (!Array.isArray(candidate.retrieved_chunks)) return null;
+  return value as RagResult;
+}
+
+function activeRagVisualizationContext(activeJob: ActiveRagVisualizationJob): RagVisualizationGenerationContext {
+  return {
+    question: activeJob.question,
+    subject: activeJob.subject,
+    taskType: activeJob.taskType as TaskType,
+    useWebSearch: activeJob.useWebSearch,
+    source: activeJob.source,
+    qualityMode: activeJob.qualityMode,
+  };
 }
 
 function KnowledgeBasisPanel({
@@ -2058,6 +3001,39 @@ function AnswerMetaBar({ result }: { result: RagResult }) {
   );
 }
 
+function StreamingAnswerPanel({
+  preview,
+  status,
+}: {
+  preview: string;
+  status: StreamingAnswerStatus;
+}) {
+  const label = status === 'streaming' ? '正在生成回答，质量审计稍后开始...' : '准备接收回答...';
+  return (
+    <div
+      data-rag-streaming-answer
+      className="overflow-anchor-none min-h-[280px] rounded-lg border border-[var(--stemotion-border)] bg-white/75 p-4 shadow-[0_1px_0_rgba(15,23,42,0.03)]"
+      style={{ overflowAnchor: 'none' } as React.CSSProperties}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--stemotion-border)] pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Loader2 size={16} className="shrink-0 animate-spin text-[var(--stemotion-primary)]" />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-[var(--stemotion-ink)]">生成中的回答</h3>
+            <p className="mt-0.5 line-clamp-1 text-xs text-[var(--stemotion-muted)]">{label}</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[var(--stemotion-primary-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--stemotion-primary-strong)]">
+          待审计
+        </span>
+      </div>
+      <div className="mt-4 min-h-[180px] whitespace-pre-wrap break-words text-sm leading-7 text-[var(--stemotion-ink)]">
+        {preview}
+      </div>
+    </div>
+  );
+}
+
 function FinalResultsPanel({ results }: { results: NonNullable<RagResult['final_results']> }) {
   return (
     <section className="rounded-lg border border-teal-100 bg-white px-3 py-3">
@@ -2110,7 +3086,7 @@ function RagQualityPanel({ report }: { report: RagQualityReport }) {
         <div className="flex items-center gap-2">
           <ShieldCheck size={17} className={report.passed ? 'text-[var(--stemotion-primary)]' : 'text-[var(--stemotion-amber)]'} />
           <div>
-            <p className="text-sm font-semibold text-[var(--stemotion-ink)]">多 Agent 复核</p>
+            <p className="text-sm font-semibold text-[var(--stemotion-ink)]">质量复核</p>
             <p className="text-xs text-[var(--stemotion-muted)]">
               默认收纳细则，优先保留答案阅读空间。
             </p>
@@ -2471,48 +3447,35 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="rounded-full border border-teal-100 bg-white px-2.5 py-1 text-xs font-semibold text-[var(--stemotion-primary-strong)] shadow-sm">{children}</span>;
 }
 
-async function readRagVisualizationEventStream(
-  body: ReadableStream<Uint8Array>,
-  onEvent: (event: DeepInteractionStreamEvent) => void,
-) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (value) {
-      buffer += decoder.decode(value, { stream: !done });
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop() ?? '';
-
-      for (const part of parts) {
-        const line = part.split('\n').find((item) => item.startsWith('data: '));
-        if (!line) continue;
-        onEvent(JSON.parse(line.slice(6)) as DeepInteractionStreamEvent);
-      }
-    }
-    if (done) break;
-  }
-}
-
-function labelRagVisualizationEvent(event: DeepInteractionStreamEvent): string {
-  if (event.type === 'progress') return event.message;
-  if (event.type === 'schema_generated') return '题目提取与互动合约已生成。';
-  if (event.type === 'validation_started') return event.message;
-  if (event.type === 'feedback_started') return event.message;
-  if (event.type === 'feedback_iteration_started') return event.message;
-  if (event.type === 'evaluator_started') return event.message;
+function labelRagVisualizationEvent(event: RagVisualizationEvent): string {
+  if (event.type === 'progress') return String((event as { message?: unknown }).message ?? '');
+  if (event.type === 'schema_generated') return '可视化规划已生成，正在生成题目专属 HTML。';
+  if (event.type === 'validation_started') return String((event as { message?: unknown }).message ?? '');
+  if (event.type === 'feedback_started') return String((event as { message?: unknown }).message ?? '');
+  if (event.type === 'feedback_iteration_started') return String((event as { message?: unknown }).message ?? '');
+  if (event.type === 'evaluator_started') return String((event as { message?: unknown }).message ?? '');
   if (event.type === 'evaluator_completed') {
-    return `${event.evaluation.agentName}：${event.evaluation.score}/100${event.evaluation.passed ? ' 通过' : ' 待修复'}`;
+    const evaluation = (event as Extract<DeepInteractionStreamEvent, { type: 'evaluator_completed' }>).evaluation;
+    return `${evaluation.agentName}：${evaluation.score}/100${evaluation.passed ? ' 通过' : ' 已记录建议'}`;
   }
   if (event.type === 'judge_decision') {
-    const label = event.decision.type === 'accept' ? '通过' : event.decision.type === 'repair' ? '修复' : event.decision.type;
-    return `Judge：${label}（${event.decision.finalScore}/100）`;
+    const decision = (event as Extract<DeepInteractionStreamEvent, { type: 'judge_decision' }>).decision;
+    const label = decision.type === 'accept' ? '通过' : decision.type === 'repair' ? '记录建议' : decision.type;
+    return `Judge：${label}（${decision.finalScore}/100）`;
   }
-  if (event.type === 'repair_started') return event.message;
-  if (event.type === 'repair_completed') return `修复完成：${event.changeLog.join('；') || '无变更'}`;
-  if (event.type === 'feedback_completed') return `审计完成：${event.qualityReport.finalScore}/100`;
+  if (event.type === 'repair_started') return `历史修复事件：${String((event as { message?: unknown }).message ?? '')}`;
+  if (event.type === 'artifact_quality_review_started') return '互动可视化已生成，质量报告后台更新中';
+  if (event.type === 'artifact_quality_review_completed') return '互动可视化质量报告后台更新完成';
+  if (event.type === 'artifact_quality_review_failed') return '互动可视化质量报告后台更新失败';
+  if (event.type === 'artifact_quality_updated') return '互动可视化质量报告已更新';
+  if (event.type === 'repair_completed') {
+    const changeLog = (event as Extract<DeepInteractionStreamEvent, { type: 'repair_completed' }>).changeLog;
+    return `历史修复记录：${changeLog.join('；') || '无变更'}`;
+  }
+  if (event.type === 'feedback_completed') {
+    const qualityReport = (event as Extract<DeepInteractionStreamEvent, { type: 'feedback_completed' }>).qualityReport;
+    return `审计完成：${qualityReport.finalScore}/100`;
+  }
   return '';
 }
 

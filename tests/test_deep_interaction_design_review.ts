@@ -5,9 +5,9 @@ import {
   collectDesignQualityBlockers,
   DESIGN_REVIEW_RUBRIC_MARKER,
   RAG_ANSWER_QUALITY_REVIEW_BOUNDARY,
-} from '../src/lib/deep-interaction/agents/designReviewRubric';
-import { judgeEvaluations } from '../src/lib/deep-interaction/agents/judgeAgent';
-import type { AgentEvaluation, AgentIssue } from '../src/lib/deep-interaction/types';
+} from '../src/features/deep-interaction/lib/agents/designReviewRubric';
+import { judgeEvaluations } from '../src/features/deep-interaction/lib/agents/judgeAgent';
+import type { AgentEvaluation, AgentIssue } from '../src/features/deep-interaction/lib/types';
 
 function evaluation(
   agentName: string,

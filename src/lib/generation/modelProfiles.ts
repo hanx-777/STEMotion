@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
+import { AppError } from '@/platform/errors';
 
 export type ModelProvider = 'openai' | 'anthropic';
 
@@ -15,6 +16,15 @@ export interface ModelProfile {
 export interface ModelProfilesFile {
   activeProfile: string;
   profiles: Record<string, ModelProfile>;
+}
+
+export type LlmProfileRole = 'answer' | 'artifact' | 'reviewer';
+
+export interface ResolvedModelProfile {
+  id: string;
+  role: LlmProfileRole;
+  profile: ModelProfile;
+  usedOverride: boolean;
 }
 
 export interface PublicModelProfile {
@@ -54,7 +64,7 @@ export function getModelProfilesPath(): string {
  * Pattern: STEMOTION_<PROFILE_ID>_API_KEY (uppercase, hyphens become underscores)
  * Falls back to config file key for backward compatibility.
  */
-function resolveApiKey(profileId: string, configKey: string): string {
+export function resolveModelProfileApiKey(profileId: string, configKey: string): string {
   const envVarName = `STEMOTION_${profileId.toUpperCase().replace(/-/g, '_')}_API_KEY`;
   const envKey = process.env[envVarName];
 
@@ -65,20 +75,55 @@ function resolveApiKey(profileId: string, configKey: string): string {
   return configKey;
 }
 
-export async function readModelProfilesFile(filePath = getModelProfilesPath()): Promise<ModelProfilesFile | null> {
+export function resolveModelProfileSecrets(data: ModelProfilesFile): ModelProfilesFile {
+  return {
+    activeProfile: data.activeProfile,
+    profiles: Object.fromEntries(
+      Object.entries(data.profiles).map(([profileId, profile]) => [
+        profileId,
+        {
+          ...profile,
+          apiKey: resolveModelProfileApiKey(profileId, profile.apiKey),
+        },
+      ]),
+    ),
+  };
+}
+
+export function resolveModelProfileForRole(
+  data: ModelProfilesFile,
+  role: LlmProfileRole = 'answer',
+): ResolvedModelProfile | null {
+  const overrideId = process.env[`STEMOTION_LLM_PROFILE_${role.toUpperCase()}`]?.trim();
+  const requestedId = overrideId || data.activeProfile;
+  const profile = data.profiles[requestedId] ?? data.profiles[data.activeProfile];
+  const id = data.profiles[requestedId] ? requestedId : data.activeProfile;
+
+  if (!profile) return null;
+
+  return {
+    id,
+    role,
+    profile: {
+      ...profile,
+      apiKey: resolveModelProfileApiKey(id, profile.apiKey),
+    },
+    usedOverride: Boolean(overrideId && data.profiles[overrideId]),
+  };
+}
+
+export async function readRawModelProfilesFile(filePath = getModelProfilesPath()): Promise<ModelProfilesFile | null> {
   try {
     const raw = await readFile(filePath, 'utf-8');
-    const data = JSON.parse(raw) as ModelProfilesFile;
-
-    // Resolve API keys from environment variables
-    for (const [profileId, profile] of Object.entries(data.profiles)) {
-      profile.apiKey = resolveApiKey(profileId, profile.apiKey);
-    }
-
-    return data;
+    return JSON.parse(raw) as ModelProfilesFile;
   } catch {
     return null;
   }
+}
+
+export async function readModelProfilesFile(filePath = getModelProfilesPath()): Promise<ModelProfilesFile | null> {
+  const data = await readRawModelProfilesFile(filePath);
+  return data ? resolveModelProfileSecrets(data) : null;
 }
 
 export async function writeModelProfilesFile(data: ModelProfilesFile, filePath = getModelProfilesPath()): Promise<void> {
@@ -109,12 +154,13 @@ export async function upsertModelProfile(
 ): Promise<ModelProfilesFile> {
   validateProfileInput(input);
   const filePath = options.filePath ?? getModelProfilesPath();
-  const current = (await readModelProfilesFile(filePath)) ?? { activeProfile: input.id, profiles: {} };
+  const current = (await readRawModelProfilesFile(filePath)) ?? { activeProfile: input.id, profiles: {} };
   const existing = current.profiles[input.id];
   const apiKey = input.apiKey?.trim() || existing?.apiKey || '';
+  const effectiveApiKey = apiKey || resolveModelProfileApiKey(input.id, '');
 
-  if (!apiKey) {
-    throw new Error('apiKey is required for new model profiles');
+  if (!effectiveApiKey) {
+    throwValidationError('apiKey is required for new model profiles');
   }
 
   current.profiles[input.id] = {
@@ -131,27 +177,27 @@ export async function upsertModelProfile(
   }
 
   await writeModelProfilesFile(current, filePath);
-  return current;
+  return resolveModelProfileSecrets(current);
 }
 
 export async function setActiveModelProfile(id: string, filePath = getModelProfilesPath()): Promise<ModelProfilesFile> {
-  const data = await readModelProfilesFile(filePath);
-  if (!data) throw new Error('model-profiles.json not found');
-  if (!data.profiles[id]) throw new Error(`Profile "${id}" not found`);
+  const data = await readRawModelProfilesFile(filePath);
+  if (!data) throw new AppError('model-profiles.json not found', { status: 404, code: 'NOT_FOUND' });
+  if (!data.profiles[id]) throw new AppError(`Profile "${id}" not found`, { status: 404, code: 'NOT_FOUND' });
 
   data.activeProfile = id;
   await writeModelProfilesFile(data, filePath);
-  return data;
+  return resolveModelProfileSecrets(data);
 }
 
 export async function deleteModelProfile(id: string, filePath = getModelProfilesPath()): Promise<ModelProfilesFile> {
-  const data = await readModelProfilesFile(filePath);
-  if (!data) throw new Error('model-profiles.json not found');
-  if (!data.profiles[id]) throw new Error(`Profile "${id}" not found`);
+  const data = await readRawModelProfilesFile(filePath);
+  if (!data) throw new AppError('model-profiles.json not found', { status: 404, code: 'NOT_FOUND' });
+  if (!data.profiles[id]) throw new AppError(`Profile "${id}" not found`, { status: 404, code: 'NOT_FOUND' });
 
   const ids = Object.keys(data.profiles);
   if (ids.length <= 1) {
-    throw new Error('Cannot delete the only model profile');
+    throwValidationError('Cannot delete the only model profile');
   }
 
   delete data.profiles[id];
@@ -160,7 +206,7 @@ export async function deleteModelProfile(id: string, filePath = getModelProfiles
   }
 
   await writeModelProfilesFile(data, filePath);
-  return data;
+  return resolveModelProfileSecrets(data);
 }
 
 export async function fetchRemoteModels(
@@ -170,8 +216,8 @@ export async function fetchRemoteModels(
   const provider = input.provider;
   const baseURL = trimTrailingSlash(input.baseURL);
   const apiKey = input.apiKey.trim();
-  if (!baseURL) throw new Error('baseURL is required');
-  if (!apiKey) throw new Error('apiKey is required');
+  if (!baseURL) throwValidationError('baseURL is required');
+  if (!apiKey) throwValidationError('apiKey is required');
 
   const url = provider === 'anthropic' ? `${normalizeAnthropicBaseURL(baseURL)}/models` : `${baseURL}/models`;
   const response = await fetcher(url, {
@@ -187,8 +233,7 @@ export async function fetchRemoteModels(
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => response.statusText);
-    throw new Error(`获取模型列表失败 (${response.status}): ${errorText || response.statusText}`);
+    throw new Error(`获取模型列表失败 (${response.status})`);
   }
 
   const payload = await response.json() as { data?: Array<{ id?: string; display_name?: string; name?: string }> };
@@ -203,17 +248,21 @@ export async function fetchRemoteModels(
 
 function validateProfileInput(input: ModelProfileInput): void {
   if (!/^[a-zA-Z0-9._-]+$/.test(input.id)) {
-    throw new Error('Profile ID can only contain letters, numbers, dots, underscores, and hyphens');
+    throwValidationError('Profile ID can only contain letters, numbers, dots, underscores, and hyphens');
   }
-  if (!input.label.trim()) throw new Error('label is required');
+  if (!input.label.trim()) throwValidationError('label is required');
   if (input.provider !== 'openai' && input.provider !== 'anthropic') {
-    throw new Error('provider must be openai or anthropic');
+    throwValidationError('provider must be openai or anthropic');
   }
-  if (!input.baseURL.trim()) throw new Error('baseURL is required');
-  if (!input.model.trim()) throw new Error('model is required');
+  if (!input.baseURL.trim()) throwValidationError('baseURL is required');
+  if (!input.model.trim()) throwValidationError('model is required');
   if (input.timeout !== undefined && (!Number.isFinite(input.timeout) || input.timeout <= 0)) {
-    throw new Error('timeout must be a positive number');
+    throwValidationError('timeout must be a positive number');
   }
+}
+
+function throwValidationError(message: string): never {
+  throw new AppError(message, { status: 400, code: 'VALIDATION_ERROR' });
 }
 
 function previewApiKey(value: string | undefined): string | null {

@@ -1,4 +1,4 @@
-import { askRag } from '../src/lib/rag/rag_pipeline';
+import { askRag } from '../src/features/rag/lib/rag_pipeline';
 
 async function main() {
   const subject = getArg('--subject') ?? 'physics_mechanics';

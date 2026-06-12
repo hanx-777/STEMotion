@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getModeConfig, getSubjectModeConfig } from '../src/lib/rag/modeConfigs';
+import { getModeConfig, getSubjectModeConfig } from '../src/features/rag/lib/modeConfigs';
 
 test('student mode hides main example cards and keeps a university physics default prompt', () => {
   const student = getModeConfig('student');

@@ -1,6 +1,6 @@
-import { askRag } from '@/lib/rag/rag_pipeline';
-import type { RagMultiAgentMode } from '@/lib/rag/agents/types';
-import type { RagAskInput, RagAskResult } from '@/lib/rag/types';
+import { askRag } from '@/features/rag/lib/rag_pipeline';
+import type { RagMultiAgentMode } from '@/features/rag/lib/agents/types';
+import type { RagAskInput, RagAskResult } from '@/features/rag/lib/types';
 import {
   toLegacyRagInput,
   toLegacyRagResult,
@@ -36,7 +36,7 @@ export async function askRagLegacyAdapter(input: RagAskInput, options: RagAskSer
   return toLegacyRagResult(v1);
 }
 
-function mapQualityMode(mode: RagV1QualityMode | undefined): RagMultiAgentMode | undefined {
+export function mapQualityMode(mode: RagV1QualityMode | undefined): RagMultiAgentMode | undefined {
   if (mode === 'fast') return 'off';
   if (mode === 'review') return 'review';
   if (mode === 'highQuality') return 'high_quality';

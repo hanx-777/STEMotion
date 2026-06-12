@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import type { VisualizationSpec } from '@/lib/rag/visualization/types';
+import type { VisualizationSpec } from '@/features/rag/lib/visualization/types';
 import { FunctionGraphRenderer } from './FunctionGraphRenderer';
 import { ForceDiagramRenderer } from './ForceDiagramRenderer';
 import { AlgorithmTraceRenderer } from './AlgorithmTraceRenderer';

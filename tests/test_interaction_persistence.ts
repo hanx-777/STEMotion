@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { InteractionArtifact } from '../src/lib/deep-interaction/types';
+import type { InteractionArtifact } from '../src/features/deep-interaction/lib/types';
 import {
   MAX_ARTIFACTS_PER_SESSION,
   MAX_INTERACTION_SESSIONS,

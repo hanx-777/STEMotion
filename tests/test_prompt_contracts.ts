@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { loadWidgetSystemPrompt, loadWidgetUserPrompt } from '../src/lib/deep-interaction/prompts/loader';
+import { loadWidgetSystemPrompt, loadWidgetUserPrompt } from '../src/features/deep-interaction/lib/prompts/loader';
 import {
   ARTIFACT_DESIGN_CONTRACT_MARKER,
   artifactDesignContractPrompt,
@@ -12,17 +12,21 @@ import {
   designRepairPrompt,
   designReviewRubricPrompt,
   followUpDesignProtectionPrompt,
-} from '../src/lib/deep-interaction/agents/designReviewRubric';
+} from '../src/features/deep-interaction/lib/agents/designReviewRubric';
 import { widgetSystemPrompt } from '../src/lib/generation/promptTemplates';
 import {
   HTML_GENERATION_SYSTEM_PROMPT,
   buildHtmlGenerationPrompt,
-} from '../src/lib/rag/visualization/htmlGenerator';
+} from '../src/features/rag/lib/visualization/htmlGenerator';
 import {
   RAG_WIDGET_HTML_SYSTEM_PROMPT,
   buildRagWidgetHtmlPrompt,
-} from '../src/lib/rag/visualization/auditPipeline';
-import { buildWidgetRefineSystemPrompt } from '../src/lib/deep-interaction/followUpHandler.server';
+} from '../src/features/rag/lib/visualization/auditPipeline';
+import { buildWidgetRefineSystemPrompt } from '../src/features/deep-interaction/lib/followUpHandler.server';
+import {
+  MULTI_AGENT_GENERATION_PROMPT_MARKER,
+  buildInternalMultiAgentPlanningPrompt,
+} from '../src/lib/generation/multiAgentGenerationPrompt';
 
 const ROOT = process.cwd();
 const SUBJECTS = ['advanced_math', 'chemistry', 'computer_science', 'physics_mechanics'];
@@ -219,10 +223,170 @@ test('artifact generation prompt paths reuse the shared design contract', () => 
   }
 });
 
+test('shared internal multi-agent prompt covers all roles without changing output shape', () => {
+  const artifactPrompt = buildInternalMultiAgentPlanningPrompt({
+    mode: 'artifact',
+    artifactKind: 'self-contained interactive HTML',
+  });
+  const answerPrompt = buildInternalMultiAgentPlanningPrompt({
+    mode: 'answer',
+    artifactKind: 'RAG JSON answer',
+  });
+  const reviewerPrompt = buildInternalMultiAgentPlanningPrompt({
+    mode: 'reviewer',
+    artifactKind: 'quality review JSON',
+  });
+
+  for (const [label, prompt] of [
+    ['artifact', artifactPrompt],
+    ['answer', answerPrompt],
+    ['reviewer', reviewerPrompt],
+  ] as const) {
+    assert.match(prompt, new RegExp(MULTI_AGENT_GENERATION_PROMPT_MARKER), `${label} prompt should include shared marker`);
+    assert.match(prompt, /Orchestrator/);
+    assert.match(prompt, /Core Analysis Agent/);
+    assert.match(prompt, /Architecture Agent/);
+    assert.match(prompt, /Logic Agent/);
+    assert.match(prompt, /Visualization \/ Interaction Agent/);
+    assert.match(prompt, /UI Design Agent/);
+    assert.match(prompt, /Content \/ Localization Agent/);
+    assert.match(prompt, /Implementation Agent/);
+    assert.match(prompt, /Reviewer \/ Critic Agent/);
+    assert.match(prompt, /internal planning|内部规划/i);
+    assert.match(prompt, /do not output|不要输出/i);
+    assert.match(prompt, /chain-of-thought|思维链/i);
+  }
+
+  assert.match(artifactPrompt, /HTML only|完整 HTML|Return ONLY/i);
+  assert.match(answerPrompt, /JSON answer protocol|JSON/i);
+  assert.match(reviewerPrompt, /review JSON|纯 JSON|JSON/i);
+});
+
+test('all generation prompt surfaces reuse the shared internal multi-agent flow', () => {
+  const lightweightSystemPrompt = HTML_GENERATION_SYSTEM_PROMPT;
+  const lightweightUserPrompt = buildHtmlGenerationPrompt({
+    question: '初速度 8m/s，抛射角 35°，观察轨迹和关键运动量',
+    answerText: '射程和最大高度由初速度、角度、重力加速度共同决定。',
+    visualizationType: 'projectile_motion',
+    extractedParameters: { v0: 8, angle: 35, g: 9.8 },
+  });
+  const auditPrompt = `${RAG_WIDGET_HTML_SYSTEM_PROMPT}\n${buildRagWidgetHtmlPrompt({
+    question: '单调栈求下一个更大元素，输入 [2,1,2,4,3]',
+    answerText: '用栈保存待解决下标。',
+    plan: {
+      shouldGenerate: true,
+      problemRestatement: '单调栈求下一个更大元素，输入 [2,1,2,4,3]',
+      knowledgePoint: '单调栈',
+      variables: [{ name: 'nums', label: '输入数组', value: '[2,1,2,4,3]', role: 'given' }],
+      visualObjects: ['数组条形图', '栈容器', '输出数组'],
+      controls: ['start', 'reset'],
+      metrics: ['当前下标', '输出数组'],
+      animationRequirements: ['逐步读取元素', '弹出时高亮'],
+      successCriteria: ['展示弹出条件'],
+      rightPanelNarration: [],
+      recommendedType: 'interactive_html',
+      confidence: 0.9,
+    },
+  })}`;
+  const followUpPrompt = buildWidgetRefineSystemPrompt({
+    title: 'Projectile motion',
+    concept: 'projectile motion',
+  });
+  const legacyWidgetPrompt = widgetSystemPrompt({
+    id: 'projectile-widget',
+    title: 'Projectile motion',
+    subject: 'physics',
+    gradeLevel: 'middle_school',
+    concept: 'projectile motion',
+    description: 'Show trajectory and key metrics.',
+    learningGoals: ['Relate velocity components to trajectory.'],
+    variables: [{ name: 'angle', label: 'Angle', min: 0, max: 90, default: 35, step: 1, unit: 'deg' }],
+    animationIntent: 'Animate projectile trajectory.',
+    formulae: [{ id: 'range', title: 'Range', latex: 'R = v^2 sin(2theta) / g' }],
+    quiz: {
+      question: 'What changes range?',
+      options: ['angle', 'color'],
+      correctAnswer: 'angle',
+      explanation: 'Range depends on launch angle.',
+    },
+    safetyNotes: ['classroom safe'],
+    messageTargets: [{ id: '#visualization', purpose: 'main stage' }],
+  });
+
+  for (const [label, prompt] of [
+    ['RAG lightweight system prompt', lightweightSystemPrompt],
+    ['RAG lightweight user prompt', lightweightUserPrompt],
+    ['RAG audit prompt', auditPrompt],
+    ['Deep Interaction follow-up prompt', followUpPrompt],
+    ['legacy widget prompt', legacyWidgetPrompt],
+  ] as const) {
+    assert.match(prompt, new RegExp(MULTI_AGENT_GENERATION_PROMPT_MARKER), `${label} should include shared multi-agent marker`);
+  }
+
+  for (const path of [
+    'src/lib/rag/rag_pipeline.ts',
+    'src/lib/deep-interaction/agentWidgetPipeline.ts',
+    'src/lib/deep-interaction/agents/repairAgent.ts',
+    'src/lib/deep-interaction/agents/pedagogyEvaluatorAgent.ts',
+    'src/lib/deep-interaction/agents/uxEvaluatorAgent.ts',
+    'src/lib/rag/agents/reviewers/reviewer_utils.ts',
+  ]) {
+    const source = readProjectFile(path);
+    assert.match(source, /buildInternalMultiAgentPlanningPrompt/, `${path} should compose the shared internal multi-agent flow`);
+  }
+});
+
+test('RAG audit HTML prompt prioritizes single-pass high-resource generation', () => {
+  const prompt = `${RAG_WIDGET_HTML_SYSTEM_PROMPT}\n${buildRagWidgetHtmlPrompt({
+    question: '解释 fib(4) 递归调用栈如何展开和回溯',
+    answerText: '先展开调用，到达边界条件后逐层返回。',
+    plan: {
+      shouldGenerate: true,
+      problemRestatement: '解释 fib(4) 递归调用栈如何展开和回溯',
+      knowledgePoint: '递归调用栈',
+      variables: [{ name: 'n', label: '递归输入', value: '4', role: 'given' }],
+      visualObjects: ['调用帧堆叠', '返回值箭头', '递归树分支'],
+      controls: ['start', 'reset', '逐层回溯'],
+      metrics: ['当前深度', '活跃调用帧', '返回值'],
+      animationRequirements: ['调用帧入栈', '边界条件返回', '父调用汇总返回值'],
+      successCriteria: ['看清 fib(4) 如何由 fib(3) 和 fib(2) 汇总'],
+      rightPanelNarration: [],
+      recommendedType: 'interactive_html',
+      confidence: 0.92,
+    },
+  })}`;
+
+  assert.match(prompt, /single-pass|一次性/i);
+  assert.match(prompt, /high-resource|高资源|最大.*资源/i);
+  assert.match(prompt, /internal self-check|内部自检/i);
+  assert.match(prompt, /state machine|真实状态机/i);
+  assert.match(prompt, /id="start-btn"/);
+  assert.match(prompt, /id="reset-btn"/);
+  assert.match(prompt, /SVG\/Canvas\/DOM/i);
+  assert.match(prompt, /first viewport|首屏/i);
+  assert.match(prompt, /not a generic explanation page|不是通用解释页/i);
+  assert.match(prompt, /not a marketing|不要.*营销/i);
+});
+
 test('deep interaction pipeline composes shared design contract without rewriting markdown prompts', () => {
   const pipelineSource = readProjectFile('src/lib/deep-interaction/agentWidgetPipeline.ts');
 
   assert.match(pipelineSource, /artifactDesignContractPrompt/);
   assert.match(pipelineSource, /widgetPromptForType/);
   assert.match(pipelineSource, /repairWidgetHtml/);
+  assert.match(pipelineSource, /buildInternalMultiAgentPlanningPrompt/);
+});
+
+test('deep interaction default pipeline is publish-first and no longer runs a repair loop', () => {
+  const pipelineSource = readProjectFile('src/lib/deep-interaction/agentWidgetPipeline.ts');
+  const artifactReadyIndex = pipelineSource.indexOf("type: 'artifact_ready'");
+  const qualityUpdatedIndex = pipelineSource.indexOf("type: 'artifact_quality_updated'");
+
+  assert.ok(artifactReadyIndex > 0, 'pipeline should emit artifact_ready');
+  assert.ok(qualityUpdatedIndex > artifactReadyIndex, 'post-publish quality update should happen after artifact_ready');
+  assert.doesNotMatch(pipelineSource, /const MAX_ITERATIONS = 5/);
+  assert.doesNotMatch(pipelineSource, /for \(let iteration = 1; iteration <= MAX_ITERATIONS; iteration\+\+\)/);
+  assert.doesNotMatch(pipelineSource, /repairArtifact\(/);
+  assert.doesNotMatch(pipelineSource, /type: 'repair_started'/);
+  assert.doesNotMatch(pipelineSource, /type: 'repair_completed'/);
 });

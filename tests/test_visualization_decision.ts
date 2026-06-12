@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { decideVisualization } from '../src/lib/rag/visualization/decision_agent';
+import { decideVisualization } from '../src/features/rag/lib/visualization/decision_agent';
 
 test('returns shouldVisualize=false for definition question', () => {
   const result = decideVisualization({ question: '导数的定义是什么？' });

@@ -1,6 +1,6 @@
 'use client';
 
-import type { LearningBlueprint, SchemaValidationSummary } from '@/lib/deep-interaction/types';
+import type { LearningBlueprint, SchemaValidationSummary } from '@/features/deep-interaction/lib/types';
 
 interface BlueprintPreviewProps {
   blueprint?: LearningBlueprint | null;

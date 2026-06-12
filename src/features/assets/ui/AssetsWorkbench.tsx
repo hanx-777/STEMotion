@@ -8,8 +8,8 @@ import { Box, FlaskConical, Gamepad2, LineChart, Network, Plus, Search, Trash2 }
 import AppShell from '@/components/layout/AppShell';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
 import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
-import { interactionTypeMeta, interactionTypeOrder } from '@/lib/deep-interaction/rendererRegistry';
-import type { DeepInteractionType, InteractionArtifact } from '@/lib/deep-interaction/types';
+import { interactionTypeMeta, interactionTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
+import type { DeepInteractionType, InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import { useArtifactStore } from '@/lib/stores/artifactStore';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 import { useInteractionSessionStore } from '@/lib/stores/interactionSessionStore';

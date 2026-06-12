@@ -11,12 +11,13 @@ import type {
   GuidedPlanningResult,
   InteractionArtifact,
   InteractionSession,
-} from '@/lib/deep-interaction/types';
-import { interactionTypeMeta } from '@/lib/deep-interaction/rendererRegistry';
+} from '@/features/deep-interaction/lib/types';
+import { interactionTypeMeta, labGenerationTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
 import { makeId } from '@/lib/utils/makeId';
 import FollowUpInput from './FollowUpInput';
 import GenerationProgressPanel from './GenerationProgressPanel';
 import GuidedPlanningPanel from './GuidedPlanningPanel';
+import InteractionTypeCards from './InteractionTypeCards';
 import AgentReviewPanel from './AgentReviewPanel';
 import QualityExplanationPanel from './QualityExplanationPanel';
 import StudyModePanel from './StudyModePanel';
@@ -257,6 +258,13 @@ export default function DeepInteractionRightPanel({
       </div>
 
       <div className={mobile ? 'custom-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5' : 'custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3'}>
+        <section
+          data-deep-generation-type-selector
+          className="rounded-lg border border-slate-200 bg-white p-3"
+        >
+          <InteractionTypeCards compact types={labGenerationTypeOrder} />
+        </section>
+
         <div>
           <label className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-400">
             生成提示词

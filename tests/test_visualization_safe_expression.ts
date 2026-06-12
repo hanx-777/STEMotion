@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compileSafeFunctionExpression, evaluateSafeFunctionExpression } from '../src/lib/rag/visualization/safe_expression';
+import { compileSafeFunctionExpression, evaluateSafeFunctionExpression } from '../src/features/rag/lib/visualization/safe_expression';
 
 test('safe expression evaluator supports generated function graph formulas', () => {
   const value = evaluateSafeFunctionExpression('x * Math.exp(-x*x)', 2);

@@ -1,5 +1,5 @@
 import { SubjectManager } from '../src/lib/subjects/subject_manager';
-import { ingestSubjectKnowledge } from '../src/lib/rag/retriever';
+import { ingestSubjectKnowledge } from '../src/features/rag/lib/retriever';
 
 async function main() {
   const subjectArg = getArg('--subject') ?? 'physics_mechanics';

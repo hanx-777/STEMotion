@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ResearchEvent, ResearchExportBundle } from '@/lib/deep-interaction/types';
+import type { ResearchEvent, ResearchExportBundle } from '@/features/deep-interaction/lib/types';
 import { makeId } from '@/lib/utils/makeId';
 
 interface ResearchLogState {

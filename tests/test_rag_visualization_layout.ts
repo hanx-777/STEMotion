@@ -4,8 +4,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import RagVisualizationArtifactRenderer from '../src/components/deep-interaction/renderers/RagVisualizationArtifactRenderer';
 import { VisualizationRenderer } from '../src/components/visualization/VisualizationRenderer';
-import { createRagVisualizationArtifact } from '../src/lib/rag/visualization/artifactAdapter';
-import type { VisualizationSpec } from '../src/lib/rag/visualization/types';
+import { createRagVisualizationArtifact } from '../src/features/rag/lib/visualization/artifactAdapter';
+import type { VisualizationSpec } from '../src/features/rag/lib/visualization/types';
 
 const projectileSpec: VisualizationSpec = {
   type: 'projectile_motion',
@@ -70,7 +70,7 @@ test('RAG visualization artifact keeps explanation panel while giving the visual
 
   assert.match(markup, /data-rag-visualization-stage/);
   assert.match(markup, /data-rag-explanation-panel/);
-  assert.match(markup, /lg:grid-cols-\[minmax\(0,74fr\)_minmax\(240px,26fr\)\]/);
+  assert.match(markup, /lg:grid-cols-\[minmax\(0,74fr\)_minmax\(220px,26fr\)\]/);
   assert.match(markup, /data-rag-explanation-details/);
   assert.match(markup, /data-rag-stage-shell/);
   assert.match(markup, /斜抛运动/);

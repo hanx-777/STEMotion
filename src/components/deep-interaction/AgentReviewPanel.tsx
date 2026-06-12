@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Star } from 'lucide-react';
 import { useState } from 'react';
 import { useGenerationProgressStore } from '@/lib/stores/generationProgressStore';
-import type { AgentEvaluation, FeedbackIteration, QualityReport } from '@/lib/deep-interaction/types';
+import type { AgentEvaluation, FeedbackIteration, QualityReport } from '@/features/deep-interaction/lib/types';
 
 export default function AgentReviewPanel() {
   const { feedbackIterations, qualityReport } = useGenerationProgressStore();

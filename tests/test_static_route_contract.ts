@@ -13,12 +13,12 @@ const corePageRoutes = [
   { route: '/knowledge', file: 'src/app/knowledge/page.tsx' },
   { route: '/settings', file: 'src/app/settings/page.tsx' },
   { route: '/deep-interaction', file: 'src/app/deep-interaction/page.tsx' },
+  { route: '/visualization', file: 'src/app/visualization/page.tsx' },
 ] as const;
 
 const legacyRedirects = [
   { route: '/student', file: 'src/app/student/page.tsx', destination: '/learn' },
   { route: '/teacher', file: 'src/app/teacher/page.tsx', destination: '/teach' },
-  { route: '/visualization', file: 'src/app/visualization/page.tsx', destination: '/lab' },
   { route: '/interactions', file: 'src/app/interactions/page.tsx', destination: '/assets' },
   { route: '/rag', file: 'src/app/rag/page.tsx', destination: '/learn' },
 ] as const;
@@ -41,6 +41,13 @@ test('legacy routes statically redirect to their new module routes', async () =>
     assert.match(source, /next\/navigation/, `${item.route} should import the App Router redirect helper`);
     assert.match(source, redirectPattern, `${item.route} should redirect to ${item.destination}`);
   }
+});
+
+test('visualization route remains a direct Lab compatibility entry', async () => {
+  const source = await readProjectFile('src/app/visualization/page.tsx');
+
+  assert.match(source, /LabSurfacePage/, '/visualization should render the Lab workbench directly');
+  assert.doesNotMatch(source, /redirect\(/, '/visualization should not hide the workbench behind a redirect');
 });
 
 test('AppShell navigation exposes the refactored module routes', async () => {
@@ -77,6 +84,13 @@ test('RAG-to-Lab bridge remains a local prefill handoff', async () => {
   assert.match(labSource, /请确认后再生成 Guided Plan/, 'Lab UI should require user confirmation before generation');
   assert.doesNotMatch(labSource, /sessionStorage\.getItem[\s\S]{0,1000}onGenerate\(/, 'Lab UI should not auto-generate from the RAG prefill');
   assert.doesNotMatch(labSource, /sessionStorage\.getItem[\s\S]{0,1000}fetch\(['"]\/api\/v1\/deep-interaction/, 'Lab UI should not call generation APIs from the prefill branch');
+});
+
+test('deep interaction generation response forwards abort signal into the agent pipeline', async () => {
+  const source = await readProjectFile('src/features/deep-interaction/application/deepInteractionService.ts');
+
+  assert.match(source, /signal\.addEventListener\(\s*['"]abort['"]/);
+  assert.match(source, /runAgentWidgetPipeline\([\s\S]*isAborted:\s*\(\)\s*=>\s*aborted\s*\|\|\s*signal\.aborted[\s\S]*signal/);
 });
 
 test('Next build artifacts contain the core route contract when available', async (t) => {

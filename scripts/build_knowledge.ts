@@ -1,11 +1,11 @@
 import { readdir, readFile, mkdir, writeFile, stat } from 'fs/promises';
 import { join, extname, relative } from 'path';
-import { chunkMarkdown } from '../src/lib/rag/markdown_chunker';
-import type { KnowledgeChunk, SubjectRagConfig } from '../src/lib/rag/knowledge_chunk_types';
-import { DEFAULT_RAG_CONFIG } from '../src/lib/rag/knowledge_chunk_types';
-import { KeywordIndex } from '../src/lib/rag/keyword_index';
-import { VectorIndex } from '../src/lib/rag/vector_index';
-import { createEmbeddingProviderFromEnv } from '../src/lib/rag/embeddings';
+import { chunkMarkdown } from '../src/features/rag/lib/markdown_chunker';
+import type { KnowledgeChunk, SubjectRagConfig } from '../src/features/rag/lib/knowledge_chunk_types';
+import { DEFAULT_RAG_CONFIG } from '../src/features/rag/lib/knowledge_chunk_types';
+import { KeywordIndex } from '../src/features/rag/lib/keyword_index';
+import { VectorIndex } from '../src/features/rag/lib/vector_index';
+import { createEmbeddingProviderFromEnv } from '../src/features/rag/lib/embeddings';
 
 const SKILLS_ROOT = join(process.cwd(), 'skills');
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt']);

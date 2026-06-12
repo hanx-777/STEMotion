@@ -1,6 +1,7 @@
 import { getDefaultSubjectSource } from '@/lib/config/settings';
-import { readKnowledgeManifest } from '@/lib/rag/retriever';
+import { readKnowledgeManifest } from '@/features/rag/lib/retriever';
 import { SubjectManager } from '@/lib/subjects/subject_manager';
+import { AppError } from '@/platform/errors';
 
 export async function listSubjectsV1() {
   const manager = new SubjectManager();
@@ -40,7 +41,7 @@ export async function getDefaultSubjectV1() {
 }
 
 export async function setDefaultSubjectV1(subjectId: string) {
-  if (!subjectId) throw new Error('subject is required');
+  if (!subjectId) throw new AppError('subject is required', { status: 400, code: 'VALIDATION_ERROR' });
   const manager = new SubjectManager();
   const subject = await manager.setDefaultSubject(subjectId);
   return {

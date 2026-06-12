@@ -10,8 +10,9 @@ import type {
   RagTaskType,
   RetrievedChunk,
   VisualizationHint,
-} from '@/lib/rag/types';
-import type { VisualizationSpec } from '@/lib/rag/visualization/types';
+} from '@/features/rag/lib/types';
+import type { VisualizationSpec } from '@/features/rag/lib/visualization/types';
+import type { FinalQualityDecision } from '@/shared/api/lightweightAgentPipeline';
 
 export type RagV1QualityMode = 'fast' | 'review' | 'highQuality';
 
@@ -24,6 +25,8 @@ export interface RagV1AskRequest {
   question?: string;
   subjectId?: string;
   taskType?: RagTaskType;
+  source?: 'student' | 'teacher';
+  clientSessionId?: string;
   retrieval?: {
     useWebSearch?: boolean;
   };
@@ -78,6 +81,7 @@ export interface RagV1AskResponse {
   visualizationHint?: VisualizationHint;
   visualizationSpec?: VisualizationSpec;
   shouldGenerateVisualization?: boolean;
+  finalQualityDecision?: FinalQualityDecision;
   warnings: string[];
 }
 

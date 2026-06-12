@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MockWebSearchProvider } from '../src/lib/rag/web_search';
+import { MockWebSearchProvider } from '../src/features/rag/lib/web_search';
 
 test('MockWebSearchProvider returns structured web results', async () => {
   const provider = new MockWebSearchProvider();

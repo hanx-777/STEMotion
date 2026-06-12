@@ -9,13 +9,13 @@ const newRoutes = [
   { route: '/learn', file: 'src/app/learn/page.tsx', component: 'RagSurfacePage', prop: 'mode="student"' },
   { route: '/teach', file: 'src/app/teach/page.tsx', component: 'RagSurfacePage', prop: 'mode="teacher"' },
   { route: '/lab', file: 'src/app/lab/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
+  { route: '/visualization', file: 'src/app/visualization/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
   { route: '/assets', file: 'src/app/assets/page.tsx', component: 'AssetsWorkbench', prop: '<AssetsWorkbench />' },
 ];
 
 const legacyRedirects = [
   { route: '/student', file: 'src/app/student/page.tsx', destination: '/learn' },
   { route: '/teacher', file: 'src/app/teacher/page.tsx', destination: '/teach' },
-  { route: '/visualization', file: 'src/app/visualization/page.tsx', destination: '/lab' },
   { route: '/interactions', file: 'src/app/interactions/page.tsx', destination: '/assets' },
   { route: '/rag', file: 'src/app/rag/page.tsx', destination: '/learn' },
 ];

@@ -6,7 +6,7 @@ import {
   normalizeLatexForRendering,
   renderLatexToString,
   validateLatexFormula,
-} from '../src/lib/rag/math_render';
+} from '../src/features/rag/lib/math_render';
 
 test('KaTeX renderer renders valid projectile formula', () => {
   const rendered = renderLatexToString('\\frac{v_0^2 \\sin^2\\theta}{2g}', true);

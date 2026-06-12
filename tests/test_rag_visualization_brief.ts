@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateInteractionArtifact } from '../src/lib/deep-interaction/validators';
-import { createRagVisualizationArtifact } from '../src/lib/rag/visualization/artifactAdapter';
-import { createRagVisualizationBrief } from '../src/lib/rag/visualization/briefAgent';
-import { buildHtmlGenerationPrompt } from '../src/lib/rag/visualization/htmlGenerator';
-import { orchestrateRagVisualization } from '../src/lib/rag/visualization/orchestrator';
-import { checkVisualizationSpec } from '../src/lib/rag/visualization/quality_checker';
-import { compileSafeFunctionExpression } from '../src/lib/rag/visualization/safe_expression';
+import { validateInteractionArtifact } from '../src/features/deep-interaction/lib/validators';
+import { createRagVisualizationArtifact } from '../src/features/rag/lib/visualization/artifactAdapter';
+import { createRagVisualizationBrief } from '../src/features/rag/lib/visualization/briefAgent';
+import { buildHtmlGenerationPrompt } from '../src/features/rag/lib/visualization/htmlGenerator';
+import { orchestrateRagVisualization } from '../src/features/rag/lib/visualization/orchestrator';
+import { checkVisualizationSpec } from '../src/features/rag/lib/visualization/quality_checker';
+import { compileSafeFunctionExpression } from '../src/features/rag/lib/visualization/safe_expression';
 
 test('brief restores horizontal projectile question context without inventing an angle', async () => {
   const result = await orchestrateRagVisualization({

@@ -1,7 +1,7 @@
 'use client';
 
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
-import { interactionTypeMeta } from '@/lib/deep-interaction/rendererRegistry';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
+import { interactionTypeMeta } from '@/features/deep-interaction/lib/rendererRegistry';
 import { useInteractionSessionStore } from '@/lib/stores/interactionSessionStore';
 
 export default function ArtifactCard({ artifact }: { artifact: InteractionArtifact }) {

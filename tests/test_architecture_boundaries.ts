@@ -7,6 +7,8 @@ const root = process.cwd();
 
 const v1Routes = [
   'src/app/api/v1/rag/ask/route.ts',
+  'src/app/api/v1/rag/ask/stream/route.ts',
+  'src/app/api/v1/rag/visualization/generate/route.ts',
   'src/app/api/v1/subjects/route.ts',
   'src/app/api/v1/subjects/default/route.ts',
   'src/app/api/v1/model-profiles/route.ts',
@@ -15,12 +17,20 @@ const v1Routes = [
   'src/app/api/v1/deep-interaction/generate/route.ts',
   'src/app/api/v1/deep-interaction/planning/route.ts',
   'src/app/api/v1/deep-interaction/follow-up/route.ts',
+  'src/app/api/v1/generation-jobs/route.ts',
+  'src/app/api/v1/generation-jobs/[jobId]/route.ts',
+  'src/app/api/v1/generation-jobs/[jobId]/events/route.ts',
+  'src/app/api/v1/generation-jobs/[jobId]/cancel/route.ts',
 ];
 
-test('v1 route handlers exist and delegate to feature application services', async () => {
+test('v1 route handlers exist and delegate only to feature application services or platform proxies', async () => {
   for (const route of v1Routes) {
     const source = await readFile(join(root, route), 'utf-8');
-    assert.match(source, /@\/features\/.+\/application\//, `${route} should import a feature application service`);
+    assert.match(
+      source,
+      /@\/features\/.+\/application\/|@\/platform\/api\/backendProxy/,
+      `${route} should import a feature application service or platform backend proxy`,
+    );
     assert.doesNotMatch(source, /@\/lib\//, `${route} must not import legacy lib modules directly`);
   }
 });

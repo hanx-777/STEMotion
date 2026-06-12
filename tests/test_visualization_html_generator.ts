@@ -5,7 +5,7 @@ import {
   HTML_GENERATION_MAX_TOKENS,
   buildHtmlGenerationPrompt,
   generateInteractiveHtml,
-} from '../src/lib/rag/visualization/htmlGenerator';
+} from '../src/features/rag/lib/visualization/htmlGenerator';
 import { ARTIFACT_DESIGN_CONTRACT_MARKER } from '../src/lib/generation/artifactDesignContract';
 import { LlmTruncationError } from '../src/lib/generation/llmClient';
 

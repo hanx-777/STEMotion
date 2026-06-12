@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildJsonAnswerInstruction, parseRagAnswerDraft } from '../src/lib/rag/answer_protocol';
+import { buildJsonAnswerInstruction, parseRagAnswerDraft } from '../src/features/rag/lib/answer_protocol';
 
 test('RagAnswerEnvelope JSON is parsed into structured sections and formulas', () => {
   const raw = JSON.stringify({

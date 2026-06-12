@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildCitations, summarizeSources } from '../src/lib/rag/citation';
-import type { RetrievedChunk, WebSearchResult } from '../src/lib/rag/types';
+import { buildCitations, summarizeSources } from '../src/features/rag/lib/citation';
+import type { RetrievedChunk, WebSearchResult } from '../src/features/rag/lib/types';
 
 test('citations distinguish local and web sources', () => {
   const local: RetrievedChunk[] = [{

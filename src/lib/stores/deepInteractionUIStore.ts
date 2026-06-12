@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { DeepInteractionType } from '@/lib/deep-interaction/types';
-import type { PlaybackStatus } from '@/lib/deep-interaction/playback/playbackTypes';
+import type { DeepInteractionType } from '@/features/deep-interaction/lib/types';
+import type { PlaybackStatus } from '@/features/deep-interaction/lib/playback/playbackTypes';
 
 interface DeepInteractionUIState {
   selectedTypeFilter: DeepInteractionType | 'all';

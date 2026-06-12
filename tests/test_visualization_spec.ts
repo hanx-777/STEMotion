@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateVisualizationSpec } from '../src/lib/rag/visualization/spec_generator';
-import type { VisualizationDecision } from '../src/lib/rag/visualization/types';
+import { generateVisualizationSpec } from '../src/features/rag/lib/visualization/spec_generator';
+import type { VisualizationDecision } from '../src/features/rag/lib/visualization/types';
 
 test('generates projectile_motion spec from decision', async () => {
   const decision: VisualizationDecision = {

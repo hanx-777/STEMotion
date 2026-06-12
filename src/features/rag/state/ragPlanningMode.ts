@@ -1,5 +1,5 @@
-import type { RagMode } from '@/lib/rag/modeConfigs';
-import type { RagTaskType } from '@/lib/rag/types';
+import type { RagMode } from '@/features/rag/lib/modeConfigs';
+import type { RagTaskType } from '@/features/rag/lib/types';
 
 export type RagPlanningVisualizationMode = 'auto' | 'manual' | 'off';
 

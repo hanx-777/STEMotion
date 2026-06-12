@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULT_SUBJECT } from '../src/lib/config/settings';
-import { ingestSubjectKnowledge, readKnowledgeManifest } from '../src/lib/rag/retriever';
+import { ingestSubjectKnowledge, readKnowledgeManifest } from '../src/features/rag/lib/retriever';
 import { SubjectManager } from '../src/lib/subjects/subject_manager';
 
 test('SubjectManager lists configured subjects and default subject', async () => {

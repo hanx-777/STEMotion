@@ -1,4 +1,4 @@
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
 
 export type RagVisualizationMode = 'auto' | 'manual' | 'off';
 export type RagVisualizationStatus = 'pending' | 'generating' | 'ready' | 'failed' | 'disabled';

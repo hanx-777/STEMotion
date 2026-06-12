@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { toAppError } from '@/platform/errors';
+import { AppError, toAppError } from '@/platform/errors';
 import type { ApiErrorPayload } from '@/shared/api/types';
 import { createLogger } from '@/lib/logger';
 
@@ -26,6 +26,6 @@ export async function parseJsonBody<T>(request: Request): Promise<T> {
     log.debug('Failed to parse JSON body', {
       error: error instanceof Error ? error.message : String(error)
     });
-    throw new Error('Invalid JSON request body');
+    throw new AppError('Invalid JSON request body', { status: 400, code: 'VALIDATION_ERROR' });
   }
 }

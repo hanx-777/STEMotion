@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { makeId } from '@/lib/utils/makeId';
-import type { RagAskResult, RagTaskType } from '@/lib/rag/types';
+import type { RagAskResult, RagTaskType } from '@/features/rag/lib/types';
 import type { RagVisualizationMetadata } from './ragVisualizationFlow';
 
 export const MAX_RAG_SESSIONS = 30;

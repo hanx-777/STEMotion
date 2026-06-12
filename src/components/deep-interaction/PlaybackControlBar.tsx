@@ -2,8 +2,8 @@
 
 import type React from 'react';
 import { Pause, Play, RotateCcw, SkipBack, SkipForward, Zap } from 'lucide-react';
-import type { InteractionArtifact } from '@/lib/deep-interaction/types';
-import { interactionPlaybackEngine } from '@/lib/deep-interaction/playback/playbackEngine';
+import type { InteractionArtifact } from '@/features/deep-interaction/lib/types';
+import { interactionPlaybackEngine } from '@/features/deep-interaction/lib/playback/playbackEngine';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 
 export default function PlaybackControlBar({ artifact }: { artifact: InteractionArtifact | null }) {

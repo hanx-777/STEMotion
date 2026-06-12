@@ -1,6 +1,6 @@
 'use client';
 
-import type { ThreeDVisualizationSchema } from '@/lib/deep-interaction/types';
+import type { ThreeDVisualizationSchema } from '@/features/deep-interaction/lib/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 
 export default function ThreeDVisualizationRenderer({ schema }: { schema: ThreeDVisualizationSchema }) {

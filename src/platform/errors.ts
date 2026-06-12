@@ -14,8 +14,5 @@ export class AppError extends Error {
 
 export function toAppError(error: unknown, fallbackMessage = 'Request failed'): AppError {
   if (error instanceof AppError) return error;
-  if (error instanceof Error) {
-    return new AppError(error.message || fallbackMessage, { status: 400, code: 'REQUEST_FAILED' });
-  }
-  return new AppError(String(error || fallbackMessage), { status: 400, code: 'REQUEST_FAILED' });
+  return new AppError(fallbackMessage, { status: 400, code: 'REQUEST_FAILED' });
 }

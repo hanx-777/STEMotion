@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { GameSchema } from '@/lib/deep-interaction/types';
+import type { GameSchema } from '@/features/deep-interaction/lib/types';
 import { useDeepInteractionUIStore } from '@/lib/stores/deepInteractionUIStore';
 
 export default function GameRenderer({ schema }: { schema: GameSchema }) {

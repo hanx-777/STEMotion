@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   buildRagVisualizationPlanningPrompt,
   createRagVisualizationGenerationPlan,
-} from '../src/lib/rag/visualization/planningAgent';
+} from '../src/features/rag/lib/visualization/planningAgent';
 
 test('planning agent preserves original projectile variables and knowledge point', async () => {
   const plan = await createRagVisualizationGenerationPlan(

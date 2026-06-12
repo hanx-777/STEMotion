@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { orchestrateRagVisualization } from '../src/lib/rag/visualization/orchestrator';
-import { checkVisualizationSpec } from '../src/lib/rag/visualization/quality_checker';
-import type { VisualizationSpec } from '../src/lib/rag/visualization/types';
+import { orchestrateRagVisualization } from '../src/features/rag/lib/visualization/orchestrator';
+import { checkVisualizationSpec } from '../src/features/rag/lib/visualization/quality_checker';
+import type { VisualizationSpec } from '../src/features/rag/lib/visualization/types';
 
-test('repairs weak algorithm traces into concrete artifact-ready visualizations', async () => {
+test('repairs weak algorithm traces into spec context without exposing deterministic renderer as final engine', async () => {
   const weakSpec: VisualizationSpec = {
     type: 'algorithm_trace',
     title: '单调栈过程演示',
@@ -45,9 +45,9 @@ test('repairs weak algorithm traces into concrete artifact-ready visualizations'
     assert.ok(result.spec.steps.some((step) => step.operation.includes('弹出')));
   }
   assert.equal(checkVisualizationSpec(result.spec).passed, true);
-  assert.equal(result.plan.engine, 'deterministic_spec');
+  assert.equal(result.plan.engine, 'spec_context');
   assert.equal(result.plan.repaired, true);
-  assert.match(result.plan.reason, /修复|补全|fallback/);
+  assert.match(result.plan.reason, /context|上下文|修复|补全|fallback/i);
 });
 
 test('falls back to interactive html when deterministic spec cannot satisfy quality gate', async () => {

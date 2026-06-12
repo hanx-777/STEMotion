@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { citationRefForCitation, citationSourceKey, resolveCitationRef } from '../src/lib/rag/citation_refs';
-import type { Citation } from '../src/lib/rag/types';
+import { citationRefForCitation, citationSourceKey, resolveCitationRef } from '../src/features/rag/lib/citation_refs';
+import type { Citation } from '../src/features/rag/lib/types';
 
 const citations: Citation[] = [
   {
