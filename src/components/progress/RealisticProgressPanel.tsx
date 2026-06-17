@@ -6,7 +6,7 @@ import { CheckCircle2, Circle, AlertCircle, Loader2, SkipForward } from 'lucide-
 import type { ProgressModel, ProgressStatus } from '@/lib/progress/progressTypes';
 import { calculateProgress } from '@/lib/progress/progressCalculator';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 
 const statusIcon: Record<ProgressStatus, React.ReactNode> = {
   idle: <Circle size={16} className="text-slate-300" />,
@@ -38,8 +38,8 @@ export default function RealisticProgressPanel({
 
     gsap.to(bar, {
       width: `${percent}%`,
-      duration: prefersReducedMotion() ? 0 : stemotionMotion.duration.item,
-      ease: stemotionMotion.ease.standard,
+      duration: prefersReducedMotion() ? 0 : learningPlatformMotion.duration.item,
+      ease: learningPlatformMotion.ease.standard,
       overwrite: 'auto',
     });
   }, [percent]);
@@ -57,8 +57,8 @@ export default function RealisticProgressPanel({
       {
         autoAlpha: 1,
         y: 0,
-        duration: stemotionMotion.duration.quick,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.quick,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

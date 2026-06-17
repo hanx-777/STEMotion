@@ -5,7 +5,7 @@ import { askRag, type RagPipelineEvent } from '../../features/rag/lib/rag_pipeli
 import type { RagAskInput, RagAskResult } from '../../features/rag/lib/types';
 import { sanitizeTraceValue } from '../../lib/generation/trace';
 import { buildFinalQualityDecision, resolveGenerationMode } from '../../lib/generation/lightweightAgentPipeline';
-import { isLegacyAgentPipeline } from '../../lib/generation/multiAgentGenerationPrompt';
+
 import { createLogger } from '../../lib/logger';
 import {
   runRagArtifactQualityReview,
@@ -179,12 +179,10 @@ function createRagSessionGenerationRunner(deps: GenerationRunnerDeps): Generatio
       try {
         const policy = resolveRagVisualizationModePolicy(input.quality?.mode);
         const generationMode = resolveGenerationMode(input.quality?.mode);
-        const pipelineKind = isLegacyAgentPipeline() ? 'legacy' : 'lightweight';
+        const pipelineKind = 'lightweight';
 
         // Round 002B: Build lightweight intermediate plan (pure, no LLM call)
-        // In legacy mode, skip so the old audit pipeline runs unmodified.
-        const lightweightPlan = pipelineKind === 'lightweight'
-          ? buildRagLightweightVisualizationPlan(
+        const lightweightPlan = buildRagLightweightVisualizationPlan(
               {
                 question: input.question ?? '',
                 subject: input.subjectId ?? ragResult.subject ?? '',
@@ -194,8 +192,7 @@ function createRagSessionGenerationRunner(deps: GenerationRunnerDeps): Generatio
                 finalResults: ragResult.final_results,
               },
               generationMode,
-            )
-          : undefined;
+            );
 
         const taskPlan = lightweightPlan?.taskPlan;
         log.info(
@@ -356,7 +353,7 @@ function buildRagSessionGenerationResult(
     artifactQualityReport: options.artifact?.qualityReport,
     outputForm: options.artifact ? 'answer_with_artifact' : 'answer',
   });
-  const pipelineKind = isLegacyAgentPipeline() ? 'legacy' : 'lightweight';
+  const pipelineKind = 'lightweight';
   log.info(
     `[rag:quality] mode=${generationMode} pipeline=${pipelineKind} ` +
     `answerPassed=${finalQualityDecision.answerPassed} ` +

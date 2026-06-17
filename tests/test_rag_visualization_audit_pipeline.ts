@@ -393,7 +393,7 @@ test('RAG widget prompts remain problem-specific for different algorithm questio
 });
 
 test('RAG visualization audit keeps design reviewers as post-publish reporting without repair loop', () => {
-  const auditSource = readFileSync(join(ROOT, 'src/lib/rag/visualization/auditPipeline.ts'), 'utf8');
+  const auditSource = readFileSync(join(ROOT, 'src/features/rag/lib/visualization/auditPipeline.ts'), 'utf8');
   const uxEvaluatorSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/uxEvaluatorAgent.ts'), 'utf8');
   const judgeSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/judgeAgent.ts'), 'utf8');
   const repairSource = readFileSync(join(ROOT, 'src/lib/deep-interaction/agents/repairAgent.ts'), 'utf8');

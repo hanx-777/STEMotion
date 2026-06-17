@@ -6,8 +6,8 @@ import StoreHydration from '@/components/StoreHydration';
 import { ToastContainer } from '@/components/ui/Toast';
 
 export const metadata: Metadata = {
-  title: "STEMotion",
-  description: "Animated and interactive K-12 STEM experiments.",
+  title: "学科智引",
+  description: "基于 RAG 的垂类大模型助学助教平台。",
 };
 
 export default function RootLayout({

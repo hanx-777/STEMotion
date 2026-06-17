@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import type { ForceDiagramSpec } from '@/features/rag/lib/visualization/types';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 
 interface Props {
   spec: ForceDiagramSpec;
@@ -32,9 +32,9 @@ export function ForceDiagramRenderer({ spec }: Props) {
         autoAlpha: 1,
         scale: 1,
         transformOrigin: '50% 50%',
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.item,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.item,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

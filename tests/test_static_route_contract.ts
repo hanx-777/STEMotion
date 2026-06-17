@@ -6,21 +6,21 @@ import test from 'node:test';
 const root = process.cwd();
 
 const corePageRoutes = [
-  { route: '/learn', file: 'src/app/learn/page.tsx' },
-  { route: '/teach', file: 'src/app/teach/page.tsx' },
-  { route: '/lab', file: 'src/app/lab/page.tsx' },
+  { route: '/learn', file: 'src/app/(student)/learn/page.tsx' },
+  { route: '/teach', file: 'src/app/(teacher)/teach/page.tsx' },
+  { route: '/lab', file: 'src/app/(student)/lab/page.tsx' },
   { route: '/assets', file: 'src/app/assets/page.tsx' },
-  { route: '/knowledge', file: 'src/app/knowledge/page.tsx' },
-  { route: '/settings', file: 'src/app/settings/page.tsx' },
-  { route: '/deep-interaction', file: 'src/app/deep-interaction/page.tsx' },
-  { route: '/visualization', file: 'src/app/visualization/page.tsx' },
+  { route: '/knowledge', file: 'src/app/(system)/knowledge/page.tsx' },
+  { route: '/settings', file: 'src/app/(teacher)/settings/page.tsx' },
+  { route: '/deep-interaction', file: 'src/app/(system)/deep-interaction/page.tsx' },
+  { route: '/visualization', file: 'src/app/(system)/visualization/page.tsx' },
 ] as const;
 
 const legacyRedirects = [
-  { route: '/student', file: 'src/app/student/page.tsx', destination: '/learn' },
-  { route: '/teacher', file: 'src/app/teacher/page.tsx', destination: '/teach' },
-  { route: '/interactions', file: 'src/app/interactions/page.tsx', destination: '/assets' },
-  { route: '/rag', file: 'src/app/rag/page.tsx', destination: '/learn' },
+  { route: '/student', file: 'src/app/(student)/student/page.tsx', destination: '/learn' },
+  { route: '/teacher', file: 'src/app/(teacher)/teacher/page.tsx', destination: '/teach' },
+  { route: '/interactions', file: 'src/app/(system)/interactions/page.tsx', destination: '/assets' },
+  { route: '/rag', file: 'src/app/(system)/rag/page.tsx', destination: '/learn' },
 ] as const;
 
 const navTargets = ['/learn', '/teach', '/lab', '/assets', '/knowledge', '/settings'] as const;
@@ -44,7 +44,7 @@ test('legacy routes statically redirect to their new module routes', async () =>
 });
 
 test('visualization route remains a direct Lab compatibility entry', async () => {
-  const source = await readProjectFile('src/app/visualization/page.tsx');
+  const source = await readProjectFile('src/app/(system)/visualization/page.tsx');
 
   assert.match(source, /LabSurfacePage/, '/visualization should render the Lab workbench directly');
   assert.doesNotMatch(source, /redirect\(/, '/visualization should not hide the workbench behind a redirect');

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import gsap from 'gsap';
 import type { FunctionGraphSpec } from '@/features/rag/lib/visualization/types';
 import { compileSafeFunctionExpression } from '@/features/rag/lib/visualization/safe_expression';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('function-graph-renderer');
@@ -80,9 +80,9 @@ export function FunctionGraphRenderer({ spec }: Props) {
 
     const curveTween = gsap.to(paths, {
       strokeDashoffset: 0,
-      duration: stemotionMotion.duration.emphasis,
-      stagger: stemotionMotion.stagger.item,
-      ease: stemotionMotion.ease.settle,
+      duration: learningPlatformMotion.duration.emphasis,
+      stagger: learningPlatformMotion.stagger.item,
+      ease: learningPlatformMotion.ease.settle,
       overwrite: 'auto',
     });
     const pointTween = gsap.fromTo(
@@ -91,9 +91,9 @@ export function FunctionGraphRenderer({ spec }: Props) {
       {
         autoAlpha: 1,
         scale: 1,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.emphasis,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.emphasis,
         transformOrigin: '50% 50%',
         overwrite: 'auto',
       },

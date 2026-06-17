@@ -7,7 +7,7 @@ import gsap from 'gsap';
 import { Box, FlaskConical, Gamepad2, LineChart, Network, Plus, Search, Trash2 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 import { interactionTypeMeta, interactionTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
 import type { DeepInteractionType, InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import { useArtifactStore } from '@/lib/stores/artifactStore';
@@ -44,8 +44,8 @@ const examples: Array<{
 export default function AssetsWorkbench() {
   const pageMotionRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-library-motion]',
-    stagger: stemotionMotion.stagger.item,
-    duration: stemotionMotion.duration.page,
+    stagger: learningPlatformMotion.stagger.item,
+    duration: learningPlatformMotion.duration.page,
     y: 14,
     delay: 0.04,
   });
@@ -87,9 +87,9 @@ export default function AssetsWorkbench() {
         autoAlpha: 1,
         y: 0,
         scale: 1,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

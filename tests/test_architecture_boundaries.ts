@@ -6,30 +6,22 @@ import test from 'node:test';
 const root = process.cwd();
 
 const v1Routes = [
-  'src/app/api/v1/rag/ask/route.ts',
-  'src/app/api/v1/rag/ask/stream/route.ts',
-  'src/app/api/v1/rag/visualization/generate/route.ts',
   'src/app/api/v1/subjects/route.ts',
   'src/app/api/v1/subjects/default/route.ts',
   'src/app/api/v1/model-profiles/route.ts',
   'src/app/api/v1/model-profiles/[id]/route.ts',
   'src/app/api/v1/model-profiles/models/route.ts',
-  'src/app/api/v1/deep-interaction/generate/route.ts',
   'src/app/api/v1/deep-interaction/planning/route.ts',
   'src/app/api/v1/deep-interaction/follow-up/route.ts',
-  'src/app/api/v1/generation-jobs/route.ts',
-  'src/app/api/v1/generation-jobs/[jobId]/route.ts',
-  'src/app/api/v1/generation-jobs/[jobId]/events/route.ts',
-  'src/app/api/v1/generation-jobs/[jobId]/cancel/route.ts',
 ];
 
-test('v1 route handlers exist and delegate only to feature application services or platform proxies', async () => {
+test('remaining v1 route handlers delegate only to feature application services or platform HTTP helpers', async () => {
   for (const route of v1Routes) {
     const source = await readFile(join(root, route), 'utf-8');
     assert.match(
       source,
-      /@\/features\/.+\/application\/|@\/platform\/api\/backendProxy/,
-      `${route} should import a feature application service or platform backend proxy`,
+      /@\/features\/.+\/application\/|@\/platform\/api\/http/,
+      `${route} should import a feature application service or platform HTTP helper`,
     );
     assert.doesNotMatch(source, /@\/lib\//, `${route} must not import legacy lib modules directly`);
   }
@@ -57,7 +49,7 @@ test('all client modules avoid server-only runtime imports', async () => {
 
     assert.doesNotMatch(
       runtimeImports,
-      /(?:from\s+['"](?:fs|fs\/promises|node:fs|node:fs\/promises)['"])|@\/lib\/generation\/llmClient|@\/lib\/generation\/modelProfiles|@\/lib\/deep-interaction\/agentWidgetPipeline|@\/lib\/rag\/visualization\/auditPipeline/,
+      /(?:from\s+['"](?:fs|fs\/promises|node:fs|node:fs\/promises)['"])|@\/lib\/generation\/llmClient|@\/lib\/generation\/modelProfiles|@\/features\/deep-interaction\/lib\/agentWidgetPipeline|@\/features\/rag\/lib\/visualization\/auditPipeline/,
       `${relativePath(file)} imports server-only infrastructure`,
     );
   }
@@ -79,8 +71,8 @@ test('default route redirects to student without loading legacy experiment workb
 });
 
 test('legacy generate and player routes redirect to current surfaces', async () => {
-  const generateSource = await readFile(join(root, 'src/app/generate/page.tsx'), 'utf-8');
-  const playerSource = await readFile(join(root, 'src/app/player/page.tsx'), 'utf-8');
+  const generateSource = await readFile(join(root, 'src/app/(teacher)/generate/page.tsx'), 'utf-8');
+  const playerSource = await readFile(join(root, 'src/app/(student)/player/page.tsx'), 'utf-8');
 
   assert.doesNotMatch(generateSource, /export\s+\{\s*default\s*\}\s+from\s+['"]\.\.\/page['"]/, '/generate must not re-export the deprecated root page');
   assert.match(generateSource, /redirect\(['"]\/visualization['"]\)/, '/generate should redirect to /visualization');

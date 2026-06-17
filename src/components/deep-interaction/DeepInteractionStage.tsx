@@ -7,7 +7,7 @@ import type { InteractionArtifact } from '@/features/deep-interaction/lib/types'
 import ArtifactRenderer from './ArtifactRenderer';
 import InteractionTypeCards from './InteractionTypeCards';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 import { labGenerationTypeOrder } from '@/features/deep-interaction/lib/rendererRegistry';
 
 export default function DeepInteractionStage({
@@ -19,8 +19,8 @@ export default function DeepInteractionStage({
 }) {
   const emptyStageRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-stage-motion]',
-    stagger: stemotionMotion.stagger.item,
-    duration: stemotionMotion.duration.page,
+    stagger: learningPlatformMotion.stagger.item,
+    duration: learningPlatformMotion.duration.page,
     y: 16,
   });
   const artifactStageRef = useRef<HTMLDivElement>(null);
@@ -37,9 +37,9 @@ export default function DeepInteractionStage({
         autoAlpha: 1,
         y: 0,
         scale: 1,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

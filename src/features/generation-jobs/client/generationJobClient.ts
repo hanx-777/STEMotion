@@ -35,6 +35,8 @@ export {
   isRagSessionGenerationResult,
 } from '@/shared/api/generationJobs';
 
+import { getApiBaseUrl } from '@/platform/api/clientConfig';
+
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface GenerationJobClientOptions {
@@ -67,7 +69,7 @@ export async function createGenerationJob(
   options: GenerationJobClientOptions = {},
 ): Promise<GenerationJobCreateResponse> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const response = await fetchImpl('/api/v1/generation-jobs', {
+  const response = await fetchImpl(`${getApiBaseUrl()}/api/v1/generation-jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type, input }),
@@ -82,7 +84,7 @@ export async function getGenerationJob(
   options: GenerationJobClientOptions = {},
 ): Promise<GenerationJobSnapshot> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const response = await fetchImpl(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}`);
+  const response = await fetchImpl(`${getApiBaseUrl()}/api/v1/generation-jobs/${encodeURIComponent(jobId)}`);
   const data = await response.json().catch(() => ({ error: '生成任务状态读取失败。' }));
   if (!response.ok) throw new Error(String((data as { error?: unknown }).error ?? '生成任务状态读取失败。'));
   return data as GenerationJobSnapshot;
@@ -101,7 +103,7 @@ export async function listGenerationJobs(
     params.set('limit', String(Math.max(1, Math.floor(filters.limit))));
   }
   const query = params.toString();
-  const response = await fetchImpl(`/api/v1/generation-jobs${query ? `?${query}` : ''}`);
+  const response = await fetchImpl(`${getApiBaseUrl()}/api/v1/generation-jobs${query ? `?${query}` : ''}`);
   const data = await response.json().catch(() => ({ error: '生成任务列表读取失败。' }));
   if (!response.ok) throw new Error(String((data as { error?: unknown }).error ?? '生成任务列表读取失败。'));
   return data as GenerationJobListResponse;
@@ -112,7 +114,7 @@ export async function cancelGenerationJob(
   options: GenerationJobClientOptions = {},
 ): Promise<GenerationJobCancelResponse> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const response = await fetchImpl(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}/cancel`, {
+  const response = await fetchImpl(`${getApiBaseUrl()}/api/v1/generation-jobs/${encodeURIComponent(jobId)}/cancel`, {
     method: 'POST',
   });
   const data = await response.json().catch(() => ({ error: '生成任务取消失败。' }));
@@ -173,7 +175,7 @@ async function subscribeGenerationJobOnce(
   onEvent: (event: GenerationJobEvent) => void,
   fetchImpl: FetchLike,
 ): Promise<void> {
-  const response = await fetchImpl(`/api/v1/generation-jobs/${encodeURIComponent(jobId)}/events`, {
+  const response = await fetchImpl(`${getApiBaseUrl()}/api/v1/generation-jobs/${encodeURIComponent(jobId)}/events`, {
     headers: { Accept: 'text/event-stream' },
   });
   if (!response.ok || !response.body) {

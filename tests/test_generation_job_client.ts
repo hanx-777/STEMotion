@@ -11,6 +11,8 @@ import {
 } from '../src/features/generation-jobs/client/generationJobClient';
 import { resumeRagRunFromBrowser } from '../src/features/rag/client/ragClient';
 
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:3101';
+
 function makeRagV1AskResponse(text: string) {
   return {
     subject: {
@@ -37,7 +39,7 @@ function makeRagV1AskResponse(text: string) {
   };
 }
 
-test('generation job client creates jobs through the same-origin BFF route', async () => {
+test('generation job client creates jobs through the configured local backend route', async () => {
   const seen: Array<{ url: string; method?: string; body?: unknown }> = [];
   const created = await createGenerationJob(
     'deep_interaction',
@@ -51,7 +53,7 @@ test('generation job client creates jobs through the same-origin BFF route', asy
   );
 
   assert.equal(created.jobId, 'job_1');
-  assert.equal(seen[0].url, '/api/v1/generation-jobs');
+  assert.equal(seen[0].url, `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs`);
   assert.equal(seen[0].method, 'POST');
   assert.match(String(seen[0].body), /deep_interaction/);
 });
@@ -96,11 +98,11 @@ test('generation job client creates top-level RAG session jobs and lists resumab
 
   assert.equal(created.type, 'rag_session_generation');
   assert.equal(jobs.jobs[0].id, 'job_1');
-  assert.equal(seen[0].url, '/api/v1/generation-jobs');
+  assert.equal(seen[0].url, `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs`);
   assert.match(String(seen[0].body), /rag_session_generation/);
   assert.equal(
     seen[1].url,
-    '/api/v1/generation-jobs?type=rag_session_generation&status=running&clientSessionId=client_session_1&limit=5',
+    `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs?type=rag_session_generation&status=running&clientSessionId=client_session_1&limit=5`,
   );
 });
 
@@ -112,7 +114,7 @@ test('generation job client subscribes to SSE and yields original pipeline event
     (event) => events.push(event),
     {
       fetchImpl: async (url) => {
-        assert.equal(String(url), '/api/v1/generation-jobs/job_1/events');
+        assert.equal(String(url), `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs/job_1/events`);
         return new Response([
           'data: {"type":"job_created","jobId":"job_1","status":"queued"}',
           '',
@@ -183,7 +185,10 @@ test('generation job client compensates with completed snapshot when SSE ends be
 
   assert.deepEqual(events.map((event) => event.type), ['progress', 'job_completed']);
   assert.deepEqual((events[1] as { result?: unknown }).result, { id: 'artifact_1', type: 'rag_visualization' });
-  assert.deepEqual(seenUrls, ['/api/v1/generation-jobs/job_1/events', '/api/v1/generation-jobs/job_1']);
+  assert.deepEqual(seenUrls, [
+    `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs/job_1/events`,
+    `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs/job_1`,
+  ]);
 });
 
 test('generation job client reconnects running jobs and deduplicates replayed events', async () => {
@@ -285,7 +290,7 @@ test('rag run client replays run snapshot events and skips SSE for completed roo
       if (url.endsWith('/events')) {
         throw new Error('completed run resume should not open SSE');
       }
-      assert.equal(url, '/api/v1/rag/runs/run_1');
+      assert.equal(url, `${DEFAULT_API_BASE_URL}/api/v1/rag/runs/run_1`);
       return Response.json({
         run: {
           runId: 'run_1',
@@ -360,7 +365,7 @@ test('rag run client replays run snapshot events and skips SSE for completed roo
       onJobEvent: (event) => seenEvents.push(event.type),
     });
 
-    assert.deepEqual(seenUrls, ['/api/v1/rag/runs/run_1']);
+    assert.deepEqual(seenUrls, [`${DEFAULT_API_BASE_URL}/api/v1/rag/runs/run_1`]);
     assert.deepEqual(seenEvents, ['answer_ready', 'answer_ready', 'artifact_ready', 'job_completed']);
     const restored = result as typeof result & { visualization_status?: string; visualization_artifact?: unknown };
     assert.equal(restored.visualization_status, 'ready');
@@ -378,7 +383,7 @@ test('rag run client replays snapshot events before subscribing to a running roo
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       seenUrls.push(url);
-      if (url === '/api/v1/rag/runs/run_1') {
+      if (url === `${DEFAULT_API_BASE_URL}/api/v1/rag/runs/run_1`) {
         return Response.json({
           run: {
             runId: 'run_1',
@@ -409,7 +414,7 @@ test('rag run client replays snapshot events before subscribing to a running roo
           ],
         });
       }
-      if (url === '/api/v1/generation-jobs/job_1/events') {
+      if (url === `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs/job_1/events`) {
         const completedResult = JSON.stringify({
           type: 'rag_session_generation_result',
           request: { question: '动量守恒' },
@@ -435,7 +440,10 @@ test('rag run client replays snapshot events before subscribing to a running roo
       onJobEvent: (event) => seenEvents.push(event.type),
     });
 
-    assert.deepEqual(seenUrls, ['/api/v1/rag/runs/run_1', '/api/v1/generation-jobs/job_1/events']);
+    assert.deepEqual(seenUrls, [
+      `${DEFAULT_API_BASE_URL}/api/v1/rag/runs/run_1`,
+      `${DEFAULT_API_BASE_URL}/api/v1/generation-jobs/job_1/events`,
+    ]);
     assert.deepEqual(seenEvents, ['answer_ready', 'answer_ready_callback', 'artifact_ready', 'job_completed']);
     const restored = result as typeof result & { visualization_status?: string };
     assert.equal(restored.visualization_status, 'ready');

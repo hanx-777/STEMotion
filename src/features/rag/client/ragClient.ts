@@ -12,16 +12,7 @@ import type {
   RagRunSnapshotResponse,
 } from '@/shared/api/ragRuns';
 
-export async function askRagFromBrowser(input: RagV1AskRequest): Promise<RagAskResult> {
-  const response = await fetch('/api/v1/rag/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? '问答请求失败');
-  return toLegacyRagResult(data);
-}
+import { getApiBaseUrl } from '@/platform/api/clientConfig';
 
 export interface RagAskStreamHandlers {
   onProgress?: (event: { stage: string; message: string; progress: number; elapsedMs?: number }) => void;
@@ -47,7 +38,7 @@ export interface ActiveRagRun {
 }
 
 export async function createRagRun(input: RagV1AskRequest): Promise<RagRunCreateResponse> {
-  const response = await fetch('/api/v1/rag/runs', {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/rag/runs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -58,7 +49,7 @@ export async function createRagRun(input: RagV1AskRequest): Promise<RagRunCreate
 }
 
 export async function getRagRun(runId: string): Promise<RagRunSnapshotResponse> {
-  const response = await fetch(`/api/v1/rag/runs/${encodeURIComponent(runId)}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/rag/runs/${encodeURIComponent(runId)}`);
   const data = await response.json().catch(() => ({ error: 'RAG run 读取失败。' }));
   if (!response.ok) throw new Error(String((data as { error?: unknown }).error ?? 'RAG run 读取失败。'));
   return data as RagRunSnapshotResponse;
@@ -72,7 +63,7 @@ export async function listRagRuns(filters: RagRunListFilters = {}): Promise<RagR
     params.set('limit', String(Math.max(1, Math.floor(filters.limit))));
   }
   const query = params.toString();
-  const response = await fetch(`/api/v1/rag/runs${query ? `?${query}` : ''}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/rag/runs${query ? `?${query}` : ''}`);
   const data = await response.json().catch(() => ({ error: 'RAG run 列表读取失败。' }));
   if (!response.ok) throw new Error(String((data as { error?: unknown }).error ?? 'RAG run 列表读取失败。'));
   return data as RagRunListResponse;

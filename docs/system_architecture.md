@@ -1,32 +1,36 @@
-# STEMotion XH202620 系统架构
+# 学科智引 XH202620 系统架构
 
-本文说明 STEMotion Physics Skill 在 XH202620 参赛展示版中的系统结构。当前版本聚焦高校大学物理力学课程，以 `/student` 学生助学、`/teacher` 教师助教和 `/visualization` 可视化演示作为主导航入口；`/rag` 作为旧参赛展示链接兼容入口重定向到 `/student`。原 STEMotion 深度交互生成能力作为底座和后续扩展能力保留。
+本文说明 学科智引：基于RAG的垂类大模型助学助教平台 在 XH202620 参赛展示版中的系统结构。当前版本聚焦高校课程教学场景，以 `/learn` 学生学习、`/teach` 教师教学、`/lab` 可视化实验、`/assets` 教学资产作为主导航入口；`/student`、`/teacher`、`/visualization`、`/interactions` 和 `/rag` 作为旧链接兼容入口保留。原 STEMotion 深度交互生成能力作为工程底座和后续扩展能力保留。
 
 ## 1. 总体架构说明
 
-STEMotion Physics Skill 面向大学物理力学教学场景，将学科配置、课程知识库、检索增强生成、引用追溯和运动可视化串联成一个助学与助教工作流。学生可以用它完成分步解题、概念问答和错因诊断；教师可以用它生成课堂演示方案、互动提问和可视化参数。
+学科智引：基于RAG的垂类大模型助学助教平台 面向高校课程教学场景，将学科 Skill、课程知识库、检索增强生成、引用追溯、分步讲解、错因诊断、教师备课和交互式教学资源生成串联成一个助学与助教工作流。
 
 ```mermaid
 flowchart LR
-  User["学生 / 教师 / 评委"] --> Page["/student / /teacher / /visualization"]
-  Page --> API["/api/v1/rag/ask"]
-  API --> Skill["Subject Skill 配置"]
-  API --> Local["本地课程知识库检索"]
-  API --> Web["可选网络补充检索"]
-  API --> Model["OpenAI / Claude 当前模型"]
-  Model --> Result["结构化回答 + citations + visualization_hint"]
+  User["学生 / 教师 / 评委"] --> Page["/learn / /teach / /lab / /assets"]
+  Page --> Client["browser feature client"]
+  Client --> Route["Next Route Handler /api/v1/*"]
+  Client --> Backend["local backend server :3101"]
+  Route --> Service["features/* application service"]
+  Backend --> Runner["generation job runner"]
+  Service --> Skill["Subject Skill 配置"]
+  Runner --> Skill
+  Service --> Local["本地课程知识库检索"]
+  Runner --> Model["OpenAI / Claude 当前模型"]
+  Model --> Result["结构化回答 + citations + visualization_hint / artifact"]
   Result --> Page
 ```
 
 ## 2. 学生助学与教师助教流程
 
-`/student` 与 `/teacher` 页面强调“学科垂类 RAG + 可追溯引用 + 教学任务 + 运动可视化”。用户先确认学科 Skill 和任务类型，再输入问题或使用默认问题。系统检索当前学科知识库，必要时补充网络检索，最终由当前启用的大模型生成结构化回答。`/rag` 继续保留为旧链接兼容入口。
+`/learn` 与 `/teach` 页面强调“学科垂类 RAG + 可追溯引用 + 教学任务 + 运动可视化”。用户先确认学科 Skill 和任务类型，再输入问题或使用默认问题。系统检索当前学科知识库，必要时补充网络检索，最终由当前启用的大模型生成结构化回答。`/student`、`/teacher` 和 `/rag` 继续保留为旧链接兼容入口。
 
 ```mermaid
 sequenceDiagram
   participant U as 用户
-  participant P as /student 或 /teacher 页面
-  participant A as /api/v1/rag/ask
+  participant P as /learn 或 /teach 页面
+  participant A as /api/v1/rag/ask 或本机 backend job API
   participant R as RAG Pipeline
   participant L as 本地知识库
   participant W as 网络补充检索
@@ -113,7 +117,7 @@ flowchart TD
 }
 ```
 
-前端读取该提示后，在 `/student` 或 `/teacher` 页面展示参数卡片，并可渲染页面内 SVG 轨迹图或轻量动画。若后端未返回提示，前端会用轻量规则兜底解析斜抛参数；兜底仅用于展示，不替代课程知识依据。`/visualization` 则使用 deep-interaction 生成完整交互实验。
+前端读取该提示后，在 `/learn` 或 `/teach` 页面展示参数卡片，并可渲染页面内 SVG 轨迹图或轻量动画。若后端未返回提示，前端会用轻量规则兜底解析斜抛参数；兜底仅用于展示，不替代课程知识依据。`/lab` 则使用 deep-interaction 生成完整交互实验，`/visualization` 作为兼容入口保留。
 
 ## 6. 原 STEMotion 深度交互系统与参赛版关系
 
@@ -121,32 +125,37 @@ flowchart TD
 
 在 XH202620 参赛展示版中：
 
-- `/student` 与 `/teacher` 是 RAG 主流程，聚焦大学物理力学助学与助教。
-- `/rag` 是兼容旧链接的重定向入口。
+- `/learn` 与 `/teach` 是 RAG 主流程，聚焦大学物理力学助学与助教。
+- `/student`、`/teacher` 和 `/rag` 是兼容旧链接的重定向入口。
 - deep-interaction 是扩展能力，用于后续把 RAG 解释进一步转化为可交互实验。
 - LearningBlueprint 和多 Agent 评审是教学质量控制底座，不作为本次参赛演示的第一入口。
 
 ## 7. 工程化模块单体边界
 
-本项目保留一个 Next.js 工程，不拆独立后端，也不引入数据库。工程边界改为：
+本项目采用本机前后端分离的模块化单体，不引入数据库。工程边界为：
 
-- `src/app`：只负责页面组合和 Route Handler，不直接拼接业务流程。
-- `src/features/*/application`：对外暴露 RAG、Subjects、Settings、Deep Interaction 的应用服务。
+- `src/app`：只负责页面组合和 Next Route Handler，不直接拼接业务流程。
+- `src/features/*/application`：对外暴露 RAG、Subjects、Settings、Deep Interaction 的 server application service。
 - `src/features/*/ui`：承载对应功能页面工作台和可交互组件。
-- `src/platform`：封装 HTTP response、统一错误、后续环境变量和服务端基础设施能力。
-- `src/shared`：放置跨功能共享 DTO 和纯类型。
-- `src/lib`：当前作为 legacy infrastructure 兼容层保留，后续逐步收敛到 feature 内部。
+- `src/features/*/client`：封装浏览器端请求、SSE 订阅和恢复逻辑。
+- `src/backend`：承载本机 backend HTTP server、SSE、generation job runner、job store 和 RAG run store。
+- `src/platform`：封装 HTTP response、统一错误、client config 等平台能力。
+- `src/shared`：放置跨前端、Route Handler 与本机 backend 共享的 DTO 和纯类型。
+- `src/lib`：当前作为兼容基础设施层保留，后续逐步收敛到 feature 内部。
 
 ```mermaid
 flowchart TB
-  App["src/app routes and pages"] --> V1["/api/v1 Route Handlers"]
-  App --> UI["features/*/ui"]
-  V1 --> Services["features/*/application services"]
+  App["src/app pages"] --> UI["features/*/ui"]
+  App --> Route["Next Route Handlers /api/v1/*"]
+  UI --> Client["features/*/client and hooks"]
+  Client --> Route
+  Client --> LocalBackend["local backend server :3101"]
+  Route --> Services["features/*/application services"]
+  LocalBackend --> Runner["src/backend generation runners"]
   Services --> Domain["features/* domain and quality logic"]
-  Services --> Legacy["src/lib legacy infrastructure"]
-  Services --> Platform["src/platform HTTP / errors / providers"]
-  UI --> Client["feature clients and hooks"]
-  Client --> V1
+  Runner --> Domain
+  Services --> Platform["src/platform HTTP / errors / config"]
+  Runner --> Shared["src/shared API contracts"]
 ```
 
 新接口优先使用 `/api/v1/*`，旧 `/api/*` 作为一个版本周期内的 thin adapter 保留，便于外部调用方平滑迁移。

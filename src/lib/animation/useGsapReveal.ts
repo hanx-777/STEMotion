@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { stemotionMotion } from './motionTokens';
+import { learningPlatformMotion } from './motionTokens';
 
 interface UseGsapRevealOptions {
   selector?: string;
@@ -18,13 +18,13 @@ interface UseGsapRevealOptions {
 
 export function useGsapReveal<T extends HTMLElement>({
   selector,
-  stagger = stemotionMotion.stagger.item,
-  duration = stemotionMotion.duration.page,
+  stagger = learningPlatformMotion.stagger.item,
+  duration = learningPlatformMotion.duration.page,
   x = 0,
   y = 20,
   scale = 1,
   delay = 0,
-  ease = stemotionMotion.ease.standard,
+  ease = learningPlatformMotion.ease.standard,
   disabled = false,
 }: UseGsapRevealOptions = {}) {
   const containerRef = useRef<T>(null);

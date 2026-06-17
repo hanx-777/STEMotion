@@ -35,8 +35,6 @@ export interface LightweightRagReviewerInput {
   pedagogyEval?: AgentEvaluation;
   uxEval?: AgentEvaluation;
   lightweightPlan?: RagLightweightVisualizationPlan;
-  /** Optional legacy agent_reviews from the old multi-reviewer chain */
-  legacyAgentReviews?: unknown[];
 }
 
 /**
@@ -150,13 +148,6 @@ export function runLightweightRagReviewer(
     }
   }
 
-  // 8. Legacy agent reviews — optional signals only (niceToHave)
-  if (input.legacyAgentReviews?.length) {
-    for (const review of (input.legacyAgentReviews as Record<string, unknown>[]).slice(0, 3)) {
-      const agentName = typeof review['agent_name'] === 'string' ? review['agent_name'] : 'legacy';
-      niceToHave.push(`Legacy review [${agentName}]: signal included as optional reference`);
-    }
-  }
 
   // Compute final decision
   const hasCritical = mustFix.some((f) => f.severity === 'critical');

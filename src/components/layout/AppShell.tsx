@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { stemotionMotion } from '@/lib/animation/motionTokens';
+import { learningPlatformMotion } from '@/lib/animation/motionTokens';
 import ModelProfileSwitcher from './ModelProfileSwitcher';
 
 const SIDEBAR_COLLAPSED_WIDTH = 80;
@@ -20,8 +20,8 @@ const SIDEBAR_MAX_WIDTH = 380;
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const navRef = useGsapReveal<HTMLElement>({ stagger: 0.06, y: 12, delay: 0.2 });
   const headerControlsRef = useGsapReveal<HTMLDivElement>({
-    stagger: stemotionMotion.stagger.tight,
-    duration: stemotionMotion.duration.item,
+    stagger: learningPlatformMotion.stagger.tight,
+    duration: learningPlatformMotion.duration.item,
     y: 8,
     delay: 0.12,
   });
@@ -126,7 +126,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   ? '深度交互模式'
                   : pathname === '/'
                     ? '实验工作台'
-                    : 'STEMotion';
+                    : '学科智引';
 
   useEffect(() => {
     const title = titleRef.current;
@@ -140,8 +140,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {
           autoAlpha: 1,
           y: 0,
-          duration: stemotionMotion.duration.quick,
-          ease: stemotionMotion.ease.standard,
+          duration: learningPlatformMotion.duration.quick,
+          ease: learningPlatformMotion.ease.standard,
           overwrite: 'auto',
         },
       );
@@ -164,11 +164,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex h-16 items-center justify-between border-b border-[var(--stemotion-border)] px-5">
           {sidebarOpen ? (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--stemotion-primary)] font-bold text-white shadow-sm">S</div>
-              <span className="text-xl font-bold tracking-tight text-[var(--stemotion-ink)]">STEMotion</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--stemotion-primary)] font-bold text-white shadow-sm">智</div>
+              <span className="text-xl font-bold tracking-tight text-[var(--stemotion-ink)]">学科智引</span>
             </div>
           ) : (
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--stemotion-primary)] font-bold text-white shadow-sm">S</div>
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--stemotion-primary)] font-bold text-white shadow-sm">智</div>
           )}
         </div>
 

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import type { AlgorithmTraceSpec } from '@/features/rag/lib/visualization/types';
 import { normalizeAlgorithmTraceSpec } from '@/features/rag/lib/visualization/algorithmTraceSpec';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 
 interface Props {
   spec: AlgorithmTraceSpec;
@@ -28,9 +28,9 @@ export function AlgorithmTraceRenderer({ spec }: Props) {
       {
         autoAlpha: 1,
         x: 0,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );
@@ -48,8 +48,8 @@ export function AlgorithmTraceRenderer({ spec }: Props) {
       {
         autoAlpha: 1,
         y: 0,
-        duration: stemotionMotion.duration.quick,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.quick,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

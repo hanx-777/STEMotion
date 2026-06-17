@@ -85,7 +85,7 @@ import type { ProgressModel, ProgressStatus as ProgressStageStatus } from '@/lib
 import RealisticProgressPanel from '@/components/progress/RealisticProgressPanel';
 import ModelProfileSwitcher from '@/components/layout/ModelProfileSwitcher';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 import { SaveToInteractionsButton } from './SaveToInteractionsButton';
 import { useToast } from '@/lib/stores/toastStore';
 import {
@@ -287,15 +287,15 @@ export default function SubjectRagConsole({ mode = 'student', initialRunId }: { 
     useState<PendingSessionSaveConfirmation | null>(null);
   const heroMotionRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-rag-hero-motion]',
-    stagger: stemotionMotion.stagger.item,
-    duration: stemotionMotion.duration.page,
+    stagger: learningPlatformMotion.stagger.item,
+    duration: learningPlatformMotion.duration.page,
     y: 14,
     delay: 0.04,
   });
   const workspaceMotionRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-rag-motion]',
-    stagger: stemotionMotion.stagger.tight,
-    duration: stemotionMotion.duration.item,
+    stagger: learningPlatformMotion.stagger.tight,
+    duration: learningPlatformMotion.duration.item,
     y: 12,
     delay: 0.08,
   });
@@ -1820,8 +1820,8 @@ export default function SubjectRagConsole({ mode = 'student', initialRunId }: { 
           {
             scale: 1,
             boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.14)',
-            duration: stemotionMotion.duration.quick,
-            ease: stemotionMotion.ease.emphasis,
+            duration: learningPlatformMotion.duration.quick,
+            ease: learningPlatformMotion.ease.emphasis,
             repeat: 1,
             yoyo: true,
             overwrite: 'auto',
@@ -1855,9 +1855,9 @@ export default function SubjectRagConsole({ mode = 'student', initialRunId }: { 
         autoAlpha: 1,
         y: 0,
         scale: 1,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );

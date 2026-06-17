@@ -58,6 +58,10 @@ export function convertLightweightPlanToGenerationPlan(
   input: RagVisualizationPlanningInput,
   lightweightPlan: RagLightweightVisualizationPlan,
 ): RagVisualizationGenerationPlan {
+  const domainModel = lightweightPlan.domainModel;
+  const taskPlan = lightweightPlan.taskPlan;
+  const visualizationMapping = lightweightPlan.visualizationMapping;
+  const layoutPlan = lightweightPlan.layoutPlan;
   const variables = buildVariables(input, domainModel);
   const knowledgePoint = deriveKnowledgePoint(input, taskPlan, domainModel);
   const metrics = buildMetrics(input, visualizationMapping);

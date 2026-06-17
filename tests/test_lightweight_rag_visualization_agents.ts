@@ -26,7 +26,6 @@ import {
 } from '../src/features/rag/lib/visualization/lightweight_rag_visualization_agents';
 import { runLightweightRagReviewer } from '../src/features/rag/lib/visualization/lightweightRagReviewer';
 import { buildFinalQualityDecision } from '../src/lib/generation/lightweightAgentPipeline';
-import { isLegacyAgentPipeline } from '../src/lib/generation/multiAgentGenerationPrompt';
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -264,25 +263,7 @@ test('formatLightweightPlanForPrompt includes domain_model, visual_state_mapping
   assert.ok(prompt.includes('25%') || prompt.includes('35%'), 'Should include side panel 25-35% constraint');
 });
 
-// ─── Test 13: Legacy env switch ────────────────────────────────────────────────
 
-test('isLegacyAgentPipeline: returns false when env not set', () => {
-  const original = process.env.STEMOTION_RAG_AGENT_PIPELINE;
-  delete process.env.STEMOTION_RAG_AGENT_PIPELINE;
-  assert.equal(isLegacyAgentPipeline(), false, 'Should return false when env not set');
-  if (original !== undefined) process.env.STEMOTION_RAG_AGENT_PIPELINE = original;
-});
-
-test('isLegacyAgentPipeline: returns true when env=legacy', () => {
-  const original = process.env.STEMOTION_RAG_AGENT_PIPELINE;
-  process.env.STEMOTION_RAG_AGENT_PIPELINE = 'legacy';
-  assert.equal(isLegacyAgentPipeline(), true, 'Should return true when env=legacy');
-  if (original !== undefined) {
-    process.env.STEMOTION_RAG_AGENT_PIPELINE = original;
-  } else {
-    delete process.env.STEMOTION_RAG_AGENT_PIPELINE;
-  }
-});
 
 // ─── Test 14: LightweightRagReviewer — pass case ───────────────────────────────
 

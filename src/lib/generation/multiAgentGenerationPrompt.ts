@@ -1,13 +1,5 @@
 export const MULTI_AGENT_GENERATION_PROMPT_MARKER = 'STEMOTION_INTERNAL_MULTI_AGENT_GENERATION_FLOW';
 
-/**
- * Round 002B: Legacy flag.
- * When true, detailedRoleLines() expands to the full 8-agent role set (pre-002B behaviour).
- * Controlled by env STEMOTION_RAG_AGENT_PIPELINE=legacy.
- */
-export function isLegacyAgentPipeline(): boolean {
-  return process.env.STEMOTION_RAG_AGENT_PIPELINE === 'legacy';
-}
 
 export type MultiAgentGenerationMode =
   | 'answer'
@@ -58,11 +50,6 @@ function modeInstruction(mode: MultiAgentGenerationMode): string {
 }
 
 function detailedRoleLines(): string {
-  // Round 002B: Default is lightweight 5-agent roles.
-  // Legacy 8-agent roles are preserved below and activated via STEMOTION_RAG_AGENT_PIPELINE=legacy.
-  if (isLegacyAgentPipeline()) {
-    return legacyDetailedRoleLines();
-  }
   return [
     'Internal roles to run in one pass (lightweight 5-agent, Round 002B):',
     '- Task Planner: identify task type, core goal, target user, output form (answer/artifact/answer_with_artifact), and whether a Specialist is needed.',
@@ -73,43 +60,13 @@ function detailedRoleLines(): string {
   ].join('\n');
 }
 
-function legacyDetailedRoleLines(): string {
-  // Pre-002B 8-agent role set — activated only when STEMOTION_RAG_AGENT_PIPELINE=legacy.
+function compactRoleLines(): string {
   return [
     'Internal roles to run in one pass:',
-    '- Orchestrator: coordinate the task; decompose it into core analysis, architecture, logic, visualization, UI, content, implementation, and review before final output.',
-    '- Core Analysis Agent: identify task type, key entities, inputs, outputs, state changes, constraints, boundary cases, and risks.',
-    '- Architecture Agent: choose the app/page/content shape, primary user flow, main area, support panels, tabs/details, and first-screen priorities.',
-    '- Logic Agent: design data structures, algorithm flow, state model, edge cases, diagnostics, and per-step snapshots when useful.',
-    '- Visualization / Interaction Agent: decide visual targets, controls, step tracking, highlights, feedback, error states, and main-stage visibility.',
-    '- UI Design Agent: design wireframe, main-stage ratio, compact controls, responsive behavior, visual hierarchy, hit targets, and scroll discipline.',
-    '- Content / Localization Agent: unify language, terminology, UI copy, helper text, educational explanation, and concise professional wording.',
-    '- Implementation Agent: produce runnable, maintainable final code/content with no unnecessary dependencies or pseudo-code.',
-    '- Reviewer / Critic Agent: internally check functional correctness, code quality, UI/UX, visualization quality, responsiveness, first-screen usability, control density, nested scrolling, and maintainability.',
-  ].join('\n');
-}
-
-function compactRoleLines(): string {
-  if (isLegacyAgentPipeline()) {
-    return [
-      'Internal roles to run in one pass:',
-      '- Orchestrator coordinates the internal pass.',
-      '- Core Analysis Agent checks entities, inputs, outputs, state changes, constraints, and risks.',
-      '- Architecture Agent checks shape, screen structure, primary flow, and support panels.',
-      '- Logic Agent checks state model, algorithm flow, edge cases, and diagnostics.',
-      '- Visualization / Interaction Agent checks controls, visible feedback, highlights, and error states.',
-      '- UI Design Agent checks layout, responsiveness, hierarchy, controls, hit targets, and scroll discipline.',
-      '- Content / Localization Agent checks language, terminology, labels, and concise educational wording.',
-      '- Implementation Agent produces the final runnable artifact.',
-      '- Reviewer / Critic Agent checks correctness, code quality, UI/UX, visualization quality, responsiveness, control density, scroll behavior, and maintainability.',
-    ].join('\n');
-  }
-  return [
-    'Internal roles to run in one pass (lightweight 5-agent):',
-    '- Task Planner: task type, core goal, output form, specialist need.',
-    '- Domain Modeler: variables, formulas, states, edge cases.',
-    '- Visualization Mapper: visual objects, state-to-visual encodings, animation, metrics, interaction.',
-    '- UI Builder: main stage >= 65%, side panel 25-35%, first-screen, no nested scroll, responsive.',
-    '- Quality Reviewer: correctness, first-screen, interactivity, runtime safety.',
+    '- Task Planner checks task type and outputs.',
+    '- Domain Modeler checks variables and edge cases.',
+    '- Visualization Mapper checks encodings and interaction model.',
+    '- UI Builder checks main stage ratio and responsive behavior.',
+    '- Quality Reviewer checks correctness and usability.',
   ].join('\n');
 }

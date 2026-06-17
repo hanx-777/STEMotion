@@ -1,10 +1,10 @@
-# STEMotion Physics Skill
+# 作品名称：学科智引：基于RAG的垂类大模型助学助教平台
 
-STEMotion Physics Skill 是面向高校大学物理力学课程的可追溯 RAG 智能助学与助教系统。它以大学物理力学为默认落地学科，结合可切换学科 Skill、课程知识库、本地检索、可选网络补充检索、结构化教学任务和运动过程可视化，支持学生分步学习、错因诊断和教师课堂演示。
+本作品面向高校课程教学场景，构建基于学科Skill、课程知识库与RAG检索增强的垂类大模型助学助教平台。系统支持可信问答、引用追溯、分步讲解、错因诊断、教师备课与交互式教学资源生成，形成面向学生学习与教师教学的智能应用闭环。
 
 原始 STEMotion 系统面向更广泛的 STEM 教育交互实验生成；XH202620 参赛展示版本聚焦高校大学物理力学场景，保留深度交互生成、LearningBlueprint、多 Agent 评审和研究日志能力作为系统底座。
 
-![STEMotion 学生学习主入口](docs/assets/readme/learn-page-current.jpg)
+![学科智引学生学习主入口](docs/assets/readme/learn-page-current.jpg)
 
 ## 评委快速入口
 
@@ -26,7 +26,7 @@ STEMotion Physics Skill 是面向高校大学物理力学课程的可追溯 RAG 
 
 | 项目 | 内容 |
 | --- | --- |
-| 作品名称 | STEMotion Physics Skill |
+| 作品名称 | 学科智引：基于RAG的垂类大模型助学助教平台 |
 | 默认学科 | 大学物理力学 `physics_mechanics` |
 | 核心场景 | 学生助学 + 教师助教 |
 | 主要能力 | 学科 Skill、RAG 知识库、引用追溯、结构化解题、错因诊断、教师备课、运动可视化 |
@@ -80,13 +80,13 @@ STEMotion Physics Skill 是面向高校大学物理力学课程的可追溯 RAG 
 
 ### 教学资产页面
 
-`/assets` 管理已保存的互动学习页，支持按类型筛选、搜索、重新打开和删除本地 artifact。页面已统一到 STEMotion Design Kit，和学习、教学、实验入口保持一致的信息密度与视觉语汇。
+`/assets` 管理已保存的互动学习页，支持按类型筛选、搜索、重新打开和删除本地 artifact。页面已统一到学科智引工作台样式，和学习、教学、实验入口保持一致的信息密度与视觉语汇。
 
 ![教学资产页面](docs/assets/readme/assets-page-current.jpg)
 
 ### 模型与 API 设置页
 
-`/settings` 用于配置 OpenAI / Claude 兼容模型 profile、API Key、Base URL，并获取模型列表。页面只展示脱敏后的 Key 预览，完整 Key 不会通过读取接口返回；配置列表、表单和接口说明统一使用 STEMotion 面板样式。
+`/settings` 用于配置 OpenAI / Claude 兼容模型 profile、API Key、Base URL，并获取模型列表。页面只展示脱敏后的 Key 预览，完整 Key 不会通过读取接口返回；配置列表、表单和接口说明统一使用学科智引面板样式。
 
 ![模型与 API 设置页](docs/assets/readme/settings-page-current.jpg)
 
@@ -114,13 +114,13 @@ flowchart LR
 
 ## 系统架构摘要
 
-系统由 Next.js 前端页面、本机 backend generation worker、Route Handlers、Subject Skill 配置、本地 RAG 检索、可选网络补充检索和 OpenAI / Claude 模型调用组成。`/learn` 与 `/teach` 页面负责教学任务交互、流式问答和 RAG 可视化 artifact 展示；`/lab` 继承 deep-interaction 完整交互实验生成；`/knowledge` 展示知识库健康度；`/assets` 管理教学资产。长生成任务优先通过 `/api/v1/generation-jobs` 创建 durable job，由本机 backend 进程继续运行并持久化到 `.stemotion/jobs`，浏览器刷新或 SSE 断开不会自动取消生成；只有显式 cancel 才会 abort。旧版 `/api/v1/rag/ask`、`/api/v1/rag/ask/stream`、`/api/v1/rag/visualization/generate` 和 `/api/v1/deep-interaction/generate` 仍作为兼容入口保留。
+系统由 Next.js 前端、浏览器 client、Next Route Handler、本机 backend server、generation job runner、Subject Skill 配置、本地 RAG 检索、可选网络补充检索和 OpenAI / Claude 模型调用组成。`/learn` 与 `/teach` 页面负责教学任务交互、流式问答和 RAG 可视化 artifact 展示；`/lab` 继承 deep-interaction 完整交互实验生成；`/knowledge` 展示知识库健康度；`/assets` 管理教学资产。长生成任务优先通过 `/api/v1/generation-jobs` 创建 durable job，由本机 backend 进程继续运行并持久化到 `.stemotion/jobs`，浏览器刷新或 SSE 断开不会自动取消生成；只有显式 cancel 才会 abort。旧版 `/api/*` 与 `/student`、`/teacher`、`/visualization`、`/interactions`、`/rag` 路由作为兼容入口保留。
 
 详细架构图、RAG 流程、Skill 切换机制、RAG 引用规则、可视化流程和 deep-interaction 关系见 [docs/system_architecture.md](docs/system_architecture.md)。
 
 ### 工程架构升级
 
-当前工程采用本机前后端分离的模块化单体：Next.js 负责 UI 与 BFF proxy，本机 backend server 默认运行在 `127.0.0.1:3101`，承接 RAG ask、RAG 可视化和 deep interaction 长任务。`src/app` 只保留页面和 Route Handler，核心业务通过 `src/features/*/application` 暴露应用服务，`src/backend` 放置本机 API/worker/job store，`src/platform` 放置 HTTP/error/proxy 等平台能力，`src/shared` 放置跨功能共享类型。新增 `/api/v1/*` 是内部和前端优先使用的版本化 REST API；旧 `/api/*` 在一个版本周期内作为兼容入口。
+当前工程采用本机前后端分离的模块化单体：Next.js 负责页面渲染、浏览器 client 和同源 Route Handler，本机 backend server 默认运行在 `127.0.0.1:3101`，承接 RAG ask、RAG 可视化和 deep interaction 长任务。`src/app` 只保留页面组合与 Route Handler，核心业务通过 `src/features/*/application` 暴露 server application service，`src/backend` 放置本机 HTTP server、generation job runner、job store 和 RAG run store，`src/platform` 放置 HTTP/error/client config 等平台能力，`src/shared` 放置跨前后端共享契约。`/api/v1/*` 是内部和前端优先使用的版本化 REST API；旧 `/api/*` 在一个版本周期内作为兼容入口。
 
 ## 技术栈
 
@@ -599,21 +599,26 @@ SSE 订阅的第一个事件是：
 stemotion-mvp/
 ├── src/
 │   ├── app/
+│   │   ├── (student)/              # 学生学习、实验、播放器兼容入口
+│   │   ├── (teacher)/              # 教师教学、设置、教师兼容入口
+│   │   ├── (system)/               # 知识库、旧 RAG/可视化/深度交互入口
 │   │   ├── api/
-│   │   │   ├── v1/
+│   │   │   ├── v1/                  # 版本化 Route Handler / backend handoff
 │   │   │   ├── rag/                 # legacy adapter
 │   │   │   ├── subjects/            # legacy adapter
 │   │   │   └── model-profiles/      # legacy adapter
-│   │   ├── learn/                   # 学生学习主入口
-│   │   ├── teach/                   # 教师教学主入口
-│   │   ├── lab/                     # 可视化实验
-│   │   ├── knowledge/               # 知识库健康度
 │   │   ├── assets/                  # 教学资产管理
-│   │   ├── settings/                # 模型与 API 设置
-│   │   ├── deep-interaction/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx                 # 根入口兼容重定向
 │   │   └── ...
+│   ├── backend/
+│   │   ├── http/                    # 本机 backend server / SSE
+│   │   ├── generation/              # generation job runner
+│   │   ├── jobs/                    # durable job store
+│   │   └── ragRuns/                 # RAG run store / export
 │   ├── features/
 │   │   ├── rag/                     # RAG 核心逻辑
+│   │   ├── generation-jobs/         # 浏览器端 job client
 │   │   ├── subjects/                # 学科 Skill 管理
 │   │   ├── settings/                # 模型配置管理
 │   │   ├── deep-interaction/        # 深度交互生成
@@ -627,10 +632,11 @@ stemotion-mvp/
 │   │   ├── settings/
 │   │   └── layout/
 │   └── lib/
-│       ├── rag/
-│       ├── subjects/
+│       ├── animation/
+│       ├── config/
 │       ├── generation/
-│       └── config/
+│       ├── subjects/
+│       └── stores/
 ├── skills/
 │   ├── physics_mechanics/
 │   ├── advanced_math/

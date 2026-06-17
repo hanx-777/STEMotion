@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { stemotionMotion } from '@/lib/animation/motionTokens';
+import { learningPlatformMotion } from '@/lib/animation/motionTokens';
 import type { DeepInteractionStreamEvent } from '@/features/deep-interaction/lib/events';
 import type { DeepInteractionType, GuidedGenerationPlan, InteractionArtifact } from '@/features/deep-interaction/lib/types';
 import { handleMockFollowUp, type LLMFollowUpResult } from '@/features/deep-interaction/lib/followUpHandler';
@@ -39,8 +39,8 @@ const getServerHydrationSnapshot = () => false;
 export default function DeepInteractionShell() {
   const shellSidebarRef = useGsapReveal<HTMLElement>({
     selector: '[data-deep-shell-motion]',
-    stagger: stemotionMotion.stagger.item,
-    duration: stemotionMotion.duration.page,
+    stagger: learningPlatformMotion.stagger.item,
+    duration: learningPlatformMotion.duration.page,
     y: 12,
     delay: 0.04,
   });

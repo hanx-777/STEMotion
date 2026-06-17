@@ -6,21 +6,21 @@ import test from 'node:test';
 const root = process.cwd();
 
 const newRoutes = [
-  { route: '/learn', file: 'src/app/learn/page.tsx', component: 'RagSurfacePage', prop: 'mode="student"' },
-  { route: '/teach', file: 'src/app/teach/page.tsx', component: 'RagSurfacePage', prop: 'mode="teacher"' },
-  { route: '/lab', file: 'src/app/lab/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
-  { route: '/visualization', file: 'src/app/visualization/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
+  { route: '/learn', file: 'src/app/(student)/learn/page.tsx', component: 'RagSurfacePage', prop: 'mode="student"' },
+  { route: '/teach', file: 'src/app/(teacher)/teach/page.tsx', component: 'RagSurfacePage', prop: 'mode="teacher"' },
+  { route: '/lab', file: 'src/app/(student)/lab/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
+  { route: '/visualization', file: 'src/app/(system)/visualization/page.tsx', component: 'LabSurfacePage', prop: '<LabSurfacePage />' },
   { route: '/assets', file: 'src/app/assets/page.tsx', component: 'AssetsWorkbench', prop: '<AssetsWorkbench />' },
 ];
 
 const legacyRedirects = [
-  { route: '/student', file: 'src/app/student/page.tsx', destination: '/learn' },
-  { route: '/teacher', file: 'src/app/teacher/page.tsx', destination: '/teach' },
-  { route: '/interactions', file: 'src/app/interactions/page.tsx', destination: '/assets' },
-  { route: '/rag', file: 'src/app/rag/page.tsx', destination: '/learn' },
+  { route: '/student', file: 'src/app/(student)/student/page.tsx', destination: '/learn' },
+  { route: '/teacher', file: 'src/app/(teacher)/teacher/page.tsx', destination: '/teach' },
+  { route: '/interactions', file: 'src/app/(system)/interactions/page.tsx', destination: '/assets' },
+  { route: '/rag', file: 'src/app/(system)/rag/page.tsx', destination: '/learn' },
 ];
 
-test('new product routes render the reused STEMotion workbenches', async () => {
+test('new product routes render the reused learning workbenches', async () => {
   for (const route of newRoutes) {
     const source = await readRoute(route.file);
 
@@ -46,7 +46,7 @@ test('legacy product routes redirect to the new product routes', async () => {
 });
 
 test('deep interaction route remains a concrete compatibility entry', async () => {
-  const source = await readRoute('src/app/deep-interaction/page.tsx');
+  const source = await readRoute('src/app/(system)/deep-interaction/page.tsx');
 
   assert.match(source, /DeepInteractionWorkbench/, '/deep-interaction should keep rendering the workbench');
   assert.doesNotMatch(source, /redirect\(/, '/deep-interaction should not be forced through a redirect');

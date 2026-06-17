@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { stemotionMotion } from './motionTokens';
+import { learningPlatformMotion } from './motionTokens';
 
 export function useGsapTimeline(deps: unknown[] = []) {
   const tlRef = useRef<gsap.core.Timeline | null>(null);
@@ -13,8 +13,8 @@ export function useGsapTimeline(deps: unknown[] = []) {
     mm.add('(prefers-reduced-motion: no-preference)', () => {
       tlRef.current = gsap.timeline({
         defaults: {
-          duration: stemotionMotion.duration.item,
-          ease: stemotionMotion.ease.standard,
+          duration: learningPlatformMotion.duration.item,
+          ease: learningPlatformMotion.ease.standard,
           overwrite: 'auto',
         },
       });

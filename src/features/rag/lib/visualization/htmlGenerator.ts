@@ -15,7 +15,7 @@ const log = createLogger('rag-viz-html');
  * 互动 HTML 单次生成的最大输出 token 数。
  * 自包含 HTML（DOCTYPE + 内联 CSS + Canvas/SVG + RAF + 滑块/按钮 + 中文标签）
  * 实际常需 6k–15k tokens，留一倍头部避免边界截断。
- * 与 src/lib/rag/visualization/auditPipeline.ts:321 的更宽松上限取同一档策略，
+ * 与 src/features/rag/lib/visualization/auditPipeline.ts 的更宽松上限取同一档策略，
  * 但仅取它的 1/4，因为本路径不走多 Agent 评审，无需保留补救预算。
  */
 export const HTML_GENERATION_REQUEST_PRESET = 'artifact';
@@ -57,7 +57,7 @@ export async function generateInteractiveHtml(
     });
   } catch (error) {
     if (error instanceof LlmTruncationError) {
-      // Mirrors the recovery path in src/lib/rag/visualization/auditPipeline.ts:303-336
+      // Mirrors the recovery path in src/features/rag/lib/visualization/auditPipeline.ts
       // and src/lib/deep-interaction/agentWidgetPipeline.ts:604-651 — recover the partial
       // output via a deterministic patcher instead of failing the whole RAG flow.
       log.warn('Interactive HTML output truncated — patching partial content', {

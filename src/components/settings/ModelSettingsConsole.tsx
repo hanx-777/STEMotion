@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { CheckCircle2, Loader2, Plus, RefreshCcw, Save, Server, Trash2 } from 'lucide-react';
 import { useGsapReveal } from '@/lib/animation/useGsapReveal';
-import { prefersReducedMotion, stemotionMotion } from '@/lib/animation/motionTokens';
+import { prefersReducedMotion, learningPlatformMotion } from '@/lib/animation/motionTokens';
 import { StemotionEmptyState, StemotionPageShell, StemotionPanel } from '@/components/ui/stemotion';
 
 type Provider = 'openai' | 'anthropic';
@@ -67,16 +67,16 @@ const EMPTY_FORM: ProfileForm = {
 export default function ModelSettingsConsole() {
   const settingsMotionRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-settings-motion]',
-    stagger: stemotionMotion.stagger.item,
-    duration: stemotionMotion.duration.page,
+    stagger: learningPlatformMotion.stagger.item,
+    duration: learningPlatformMotion.duration.page,
     y: 14,
     delay: 0.04,
   });
   const profileListRef = useRef<HTMLDivElement>(null);
   const formGridRef = useGsapReveal<HTMLDivElement>({
     selector: '[data-settings-field]',
-    stagger: stemotionMotion.stagger.tight,
-    duration: stemotionMotion.duration.item,
+    stagger: learningPlatformMotion.stagger.tight,
+    duration: learningPlatformMotion.duration.item,
     y: 10,
     delay: 0.08,
   });
@@ -111,9 +111,9 @@ export default function ModelSettingsConsole() {
       {
         autoAlpha: 1,
         y: 0,
-        duration: stemotionMotion.duration.item,
-        stagger: stemotionMotion.stagger.tight,
-        ease: stemotionMotion.ease.standard,
+        duration: learningPlatformMotion.duration.item,
+        stagger: learningPlatformMotion.stagger.tight,
+        ease: learningPlatformMotion.ease.standard,
         overwrite: 'auto',
       },
     );
@@ -135,8 +135,8 @@ export default function ModelSettingsConsole() {
       {
         scale: 1,
         boxShadow: '0 0 0 4px rgba(15, 118, 110, 0.14)',
-        duration: stemotionMotion.duration.quick,
-        ease: stemotionMotion.ease.emphasis,
+        duration: learningPlatformMotion.duration.quick,
+        ease: learningPlatformMotion.ease.emphasis,
         repeat: 1,
         yoyo: true,
         overwrite: 'auto',

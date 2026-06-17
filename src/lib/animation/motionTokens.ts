@@ -1,6 +1,6 @@
 'use client';
 
-export const stemotionMotion = {
+export const learningPlatformMotion = {
   duration: {
     quick: 0.18,
     item: 0.32,
